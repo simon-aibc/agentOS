@@ -37,28 +37,6 @@ MAX_ADVISORY_CHARS: Final = 900
 TASK_SIGNATURE_PREFIX: Final = "sha256:v1:"
 TASK_SIGNATURE_HEX_LENGTH: Final = 64
 _TASK_SIGNATURE_RE = re.compile(rf"^sha256:v1:[0-9a-f]{{{TASK_SIGNATURE_HEX_LENGTH}}}$")
-_PRIVATE_CONTEXT_MARKER: Final = "private application context:"
-_SIGNATURE_STOPWORDS: Final = frozenset(
-    {
-        "a",
-        "an",
-        "and",
-        "for",
-        "in",
-        "of",
-        "on",
-        "or",
-        "the",
-        "to",
-        "with",
-        "please",
-        "private",
-        "application",
-        "context",
-        "requested",
-        "workspace",
-    }
-)
 
 OutcomeSignal = Literal["accepted", "rejected", "edited", "unknown"]
 _OUTCOME_SIGNALS: Final = frozenset({"accepted", "rejected", "edited", "unknown"})
@@ -226,27 +204,17 @@ def _validate_artifact_refs(value: object) -> list[str]:
 
 
 def task_signature_for_input(task: object) -> str | None:
-    """Hash a normalized task shape without persisting its source text.
+    """Hash submitted task text without persisting the source text.
 
-    The SimonOS dispatch envelope includes per-run ids and a fixed private
-    context suffix, neither of which should split repeated-work buckets.
-    Only the deterministic digest is stored in an observation.
+    Clients that need to group differently shaped task envelopes must supply
+    an opaque ``task_signature`` when creating the run. Core never interprets
+    client task syntax.
     """
     if not isinstance(task, str):
         return None
-    raw = task.strip()
-    if not raw:
+    if not task:
         return None
-    task_body = raw.lower().split(_PRIVATE_CONTEXT_MARKER, maxsplit=1)[0]
-    task_body = re.sub(r"^simonos\s+private\s+task\s+[^:\n]+:\s*", "", task_body)
-    tokens = [
-        token
-        for token in re.findall(r"[^\W_]+", task_body, flags=re.UNICODE)
-        if token not in _SIGNATURE_STOPWORDS
-    ]
-    if not tokens:
-        return None
-    digest = hashlib.sha256(" ".join(tokens).encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(task.encode("utf-8")).hexdigest()
     return f"{TASK_SIGNATURE_PREFIX}{digest}"
 
 

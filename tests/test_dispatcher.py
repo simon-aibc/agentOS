@@ -9,14 +9,14 @@ from pydantic import BaseModel
 from agent_os.nodes.tool_dispatcher import build_tool_dispatcher_node
 from agent_os.schemas import BashResult, RouterDecision
 from agent_os.skills import RegisteredSkill, SkillRegistry
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 class DummyResult(BaseModel):
     foo: str
 
 
-def make_state(task: str) -> SimonState:
+def make_state(task: str) -> AgentState:
     return {
         "messages": [],
         "task": task,

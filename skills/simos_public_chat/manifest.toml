@@ -1,8 +1,0 @@
-[skill]
-name = "simos_public_chat"
-version = "0.1.0"
-description = "Run the isolated Hermes-backed Simos public website channel"
-
-[[skill.handlers]]
-match = ["simos_public_chat", "simos-public-chat"]
-entrypoint = "handlers:simos_public_chat"

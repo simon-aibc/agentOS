@@ -49,9 +49,6 @@ Compose reads `.env` from the repository root. Do not commit that file.
 | `AGENT_OS_WORKSPACE` | `.` | Host directory mounted read/write at `/workspace` |
 | `AGENT_OS_API_BASE` | `http://127.0.0.1:4680` | Browser-visible runtime API used by the console |
 | `AGENT_OS_CORS_ORIGINS` | `http://127.0.0.1:4100` | Allowed console origin |
-| `AGENT_OS_PUBLIC_CONCIERGE_PATH` | empty | Optional approved public profile for website chat |
-| `AGENT_OS_PUBLIC_CONCIERGE_RATE_LIMIT` | `20` | Per-client public chat requests per minute; `0` disables |
-| `AGENT_OS_PUBLIC_CONCIERGE_ADMIN_TOKEN` | empty | Enables token-gated internal lead review |
 | `AGENT_OS_SCHEDULER_ENABLED` | `true` | Enables automatic schedule firing |
 | `AGENT_OS_SCHED_TICK_SECONDS` | `1` | Scheduler polling cadence |
 
@@ -123,6 +120,3 @@ curl --fail http://127.0.0.1:4100/
 - Do not change the host bindings to `0.0.0.0` without an authenticated reverse
   proxy, TLS, and an explicit threat review. The runtime API has no public-edge
   authentication boundary.
-- If you enable the public concierge for a website, expose only
-  `/api/public/concierge/chat` through a reviewed HTTPS edge. Do not expose the
-  full runtime API or the token-gated lead review route to the public internet.

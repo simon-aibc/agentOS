@@ -149,7 +149,7 @@ def test_conversation_summary_default_on_old_checkpoint():
     loaded = serde.loads_typed(dumped)
 
     # Actually Pydantic / TypedDict doesn't fail on missing keys if they are Optional/NotRequired
-    # Since SimonState is a TypedDict with `conversation_summary: str | None`,
+    # Since AgentState is a TypedDict with `conversation_summary: str | None`,
     # json loading it will just have it missing or we use .get("conversation_summary")
     assert (
         "conversation_summary" not in loaded or loaded["conversation_summary"] is None

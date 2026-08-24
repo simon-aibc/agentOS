@@ -5,7 +5,7 @@ from pathlib import Path
 from agent_os.backends import get_default_backend_registry
 from agent_os.sandbox import get_sandbox_root
 from agent_os.schemas import PlanArtifact
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 MAX_INVENTORY_FILES = 1000
 _MAX_INVENTORY_DIRECTORIES = 1000
@@ -79,7 +79,7 @@ def _build_sandbox_inventory() -> list[str]:
     return sorted(valid_files)
 
 
-def _build_architect_prompt(state: SimonState) -> str:
+def _build_architect_prompt(state: AgentState) -> str:
     """
     Build the prompt text for the CLI architect.
     Includes the original task, sandbox inventory, and any rejection feedback.
@@ -122,7 +122,7 @@ def _build_architect_prompt(state: SimonState) -> str:
 
 def build_cli_architect_invoker(
     backend: str,
-) -> Callable[[SimonState], PlanArtifact]:
+) -> Callable[[AgentState], PlanArtifact]:
     """
     Returns a callable that executes the CLI architect node logic for a specific backend.
     Supported backends: 'claude-code', 'codex'.

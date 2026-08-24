@@ -1,7 +1,7 @@
 from langgraph.types import interrupt
 
 from agent_os.schemas import ArchitectBrief, PlanArtifact
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 def normalize_human_feedback(value: object) -> str:
@@ -25,7 +25,7 @@ def normalize_human_feedback(value: object) -> str:
     raise ValueError(f"Unsupported feedback value: {value}")
 
 
-def human_gate_node(state: SimonState) -> dict[str, str]:
+def human_gate_node(state: AgentState) -> dict[str, str]:
     plan = state.get("plan")
     if not isinstance(plan, (ArchitectBrief, PlanArtifact)):
         raise ValueError(

@@ -8,7 +8,7 @@ from agent_os.messages import AGENT_MESSAGE_MAX_TOKENS, trim_agent_messages
 from agent_os.nodes.architect import architect_node
 from agent_os.nodes.executor import executor_node
 from agent_os.schemas import ArchitectBrief, ExecutorReport
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 def _large_history() -> list[HumanMessage | AIMessage]:
@@ -67,7 +67,7 @@ def test_agent_nodes_trim_messages_before_invocation(
             "agent_os.nodes.architect.build_architect_agent",
             lambda: mock_agent,
         )
-        state: SimonState = {
+        state: AgentState = {
             "messages": history,
             "task": "do work",
             "plan": None,

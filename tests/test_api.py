@@ -128,6 +128,22 @@ def test_run_api_rejects_invalid_strategy_override():
     assert response.json()["detail"] == "Strategy is not allowed for this task kind"
 
 
+def test_run_api_accepts_opaque_task_signature_and_rejects_invalid_values():
+    signature = "sha256:v1:" + "a" * 64
+    created = client.post(
+        "/api/runs", json={"task": "run a report", "task_signature": signature}
+    )
+    assert created.status_code == 200
+    run = client.get(f"/api/runs/{created.json()['run_id']}").json()
+    assert run["task_signature"] == signature
+
+    invalid = client.post(
+        "/api/runs", json={"task": "run a report", "task_signature": "report"}
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"] == "task_signature must be a sha256:v1 digest"
+
+
 def test_api_sessions_list(tmp_path, monkeypatch):
     db_path = str(tmp_path / "checkpoints.sqlite")
     monkeypatch.setenv("CHECKPOINT_DB_ENV", db_path)

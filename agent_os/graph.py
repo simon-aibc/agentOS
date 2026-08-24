@@ -15,19 +15,19 @@ from agent_os.nodes.tool_dispatcher import (
     build_tool_dispatcher_node,
 )
 from agent_os.routing import ROUTE_TO_NODE, route_from_state
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 def build_graph(
-    architect_node_impl: Callable[[SimonState], dict] | None = None,
-    executor_node_impl: Callable[[SimonState], dict] | None = None,
+    architect_node_impl: Callable[[AgentState], dict] | None = None,
+    executor_node_impl: Callable[[AgentState], dict] | None = None,
     tool_dispatcher_node_impl: (
-        Callable[[SimonState], DispatcherCommand] | None
+        Callable[[AgentState], DispatcherCommand] | None
     ) = None,
     checkpointer: BaseCheckpointSaver | None = None,
 ) -> CompiledStateGraph:
     """Build the graph with an injected or SQLite checkpointer."""
-    builder = StateGraph(SimonState)
+    builder = StateGraph(AgentState)
 
     if architect_node_impl is None:
         architect_node_impl = architect_node

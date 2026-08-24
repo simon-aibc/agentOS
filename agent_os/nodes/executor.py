@@ -18,7 +18,7 @@ from agent_os.schemas import (
     PlanArtifact,
 )
 from agent_os.semantic_judge import build_llm_judge
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 from agent_os.validation import LlmJudge, ValidationRule, run_validation, summarize
 
 _EXPLICIT_CHECK = re.compile(
@@ -147,7 +147,7 @@ def _is_quota_or_rate_limit_error(exc: Exception) -> bool:
     return any(ind in text for ind in quota_indicators)
 
 
-def executor_node(state: SimonState) -> dict[str, ExecutorReport]:
+def executor_node(state: AgentState) -> dict[str, ExecutorReport]:
     """
     R4 Executor node.
     Requires state["plan"] to be an ArchitectBrief.

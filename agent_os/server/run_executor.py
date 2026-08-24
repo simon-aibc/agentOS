@@ -146,7 +146,8 @@ def _capture_terminal_observation(
             run_id=str(run["run_id"]),
             thread_id=str(run["thread_id"]),
             task_kind=task_kind,
-            task_signature=task_signature_for_input(run.get("task")),
+            task_signature=run.get("task_signature")
+            or task_signature_for_input(run.get("task")),
             approach=approach,
             outcome_signal="unknown",
             outcome_evidence=f"terminal_status={terminal_status}",

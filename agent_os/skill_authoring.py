@@ -47,7 +47,7 @@ class SkillAuthoringError(ValueError):
 
 
 class CandidateAuthoringInput(BaseModel):
-    """Privacy-bounded candidate data supplied by the SimonOS candidate ledger."""
+    """Privacy-bounded candidate data supplied by an application candidate ledger."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 

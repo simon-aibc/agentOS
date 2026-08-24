@@ -1,10 +1,10 @@
 from agent_os.schemas import CodingPlan, CodingResult, ExecutionResult, PlanArtifact
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def test_simon_state_accepts_all_plan_types():
+def test_agent_state_accepts_all_plan_types():
     # TypedDict construction
-    state_none: SimonState = {
+    state_none: AgentState = {
         "messages": [],
         "task": "test",
         "plan": None,
@@ -13,7 +13,7 @@ def test_simon_state_accepts_all_plan_types():
         "hot_context": None,
     }
 
-    state_str: SimonState = {
+    state_str: AgentState = {
         "messages": [],
         "task": "test",
         "plan": "string plan",
@@ -22,7 +22,7 @@ def test_simon_state_accepts_all_plan_types():
         "hot_context": None,
     }
 
-    state_generic: SimonState = {
+    state_generic: AgentState = {
         "messages": [],
         "task": "test",
         "plan": PlanArtifact(summary="summary"),
@@ -31,7 +31,7 @@ def test_simon_state_accepts_all_plan_types():
         "hot_context": None,
     }
 
-    state_coding: SimonState = {
+    state_coding: AgentState = {
         "messages": [],
         "task": "test",
         "plan": CodingPlan(summary="coding", files=["a.py"], changes=[], verify_cmd=""),

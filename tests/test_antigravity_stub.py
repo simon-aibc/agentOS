@@ -8,10 +8,10 @@ from agent_os.backends import (
     NotYetSupportedError,
     build_default_registry,
 )
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def sample_state() -> SimonState:
+def sample_state() -> AgentState:
     return {
         "messages": [],
         "task": "candidate backend",

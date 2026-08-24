@@ -262,6 +262,35 @@ The same data is available through the private execution API:
 
 Stores live in `<workspace>/observations.db` (or standalone `./observations.db`), unless `AGENT_OS_OBSERVATIONS_DB` explicitly overrides the path. The records contain bounded operational metadata only; they never store task prompt text, model output, tool arguments, or memory contents. Strategy assignment records maintain full audit provenance across workflow replays.
 
+### Stable task grouping
+
+`POST /api/runs` accepts an optional `task_signature` in the form
+`sha256:v1:<64 lowercase hex characters>`. It is an opaque client-produced
+digest used only to group observations. When absent, Agent OS hashes the exact
+submitted `task`; it does not parse, trim, or recognize application envelopes.
+An application that adds volatile context should hash its stable task shape and
+send that digest itself.
+
+```json
+{"task":"Prepare a weekly report", "task_signature":"sha256:v1:<digest>"}
+```
+
+## Build your application
+
+Keep the application and Agent OS independently runnable: the application
+calls the localhost Runtime API, while a private workspace supplies its own
+configuration and extension packages. Do not import internal `agent_os.*`
+modules; only `agent_os.api` is stable.
+
+For a vendor-neutral reference, start with
+[`examples/private-workspace`](../examples/private-workspace). Its workspace
+loads a local private skill package and uses built-in memory. The adjacent
+`extensions/pyproject.toml` shows how the same private application registers a
+context provider and action connector through standard entry points. Install
+that extension package into the environment that runs Agent OS, then set the
+provider/connector names in the private workspace. Credentials, profiles, and
+application routes remain outside this repository.
+
 ---
 
 ## 6. Skill Packages
