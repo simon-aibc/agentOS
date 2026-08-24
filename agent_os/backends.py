@@ -21,12 +21,12 @@ from agent_os.schemas import (
     ExecutionResult,
     PlanArtifact,
 )
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 BackendRole = Literal["architect", "executor"]
 BACKEND_ROLES = frozenset({"architect", "executor"})
 BackendArtifact = PlanArtifact | ExecutionResult
-BackendInvoker = Callable[[SimonState], BackendArtifact]
+BackendInvoker = Callable[[AgentState], BackendArtifact]
 
 
 class _CodexCodingPlanOutput(BaseModel):
@@ -196,7 +196,7 @@ class ClaudeCodeAdapter:
                 f"Backend adapter '{self.name}' does not support role '{role}'"
             )
 
-        def invoker(state: SimonState) -> BackendArtifact:
+        def invoker(state: AgentState) -> BackendArtifact:
             if role == "architect":
                 from agent_os.agents.cli_architect import _build_architect_prompt
 
@@ -271,7 +271,7 @@ class CodexAdapter:
                 f"Backend adapter '{self.name}' does not support role '{role}'"
             )
 
-        def invoker(state: SimonState) -> BackendArtifact:
+        def invoker(state: AgentState) -> BackendArtifact:
             if role == "architect":
                 from agent_os.agents.cli_architect import _build_architect_prompt
 
@@ -346,7 +346,7 @@ class AntigravityAdapter:
                 f"Backend adapter '{self.name}' does not support role '{role}'"
             )
 
-        def invoker(state: SimonState) -> BackendArtifact:
+        def invoker(state: AgentState) -> BackendArtifact:
             del state
             raise NotYetSupportedError(ANTIGRAVITY_NOT_SUPPORTED_MESSAGE)
 

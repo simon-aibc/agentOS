@@ -13,11 +13,11 @@ from agent_os.schemas import (
     RouterDecision,
     ToolExecutionResult,
 )
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def test_simon_state_keys():
-    """SimonState exposes six required and five optional persisted keys."""
+def test_agent_state_keys():
+    """AgentState exposes six required and five optional persisted keys."""
     # TypedDict.__annotations__ gives the keys and types
     expected_required_keys = {
         "messages",
@@ -36,18 +36,18 @@ def test_simon_state_keys():
             "strategy_hint",
             "run_id",
         }
-    assert set(SimonState.__annotations__.keys()) == expected_all_keys
+    assert set(AgentState.__annotations__.keys()) == expected_all_keys
     # TypedDict fields are required unless declared with NotRequired.
     # Note: TypedDict.__required_keys__ excludes fields declared as NotRequired.
-    assert set(SimonState.__required_keys__) == expected_required_keys
-    assert "tool_result" not in SimonState.__required_keys__
-    assert "router_escalated" not in SimonState.__required_keys__
-    assert "backend_binding" not in SimonState.__required_keys__
+    assert set(AgentState.__required_keys__) == expected_required_keys
+    assert "tool_result" not in AgentState.__required_keys__
+    assert "router_escalated" not in AgentState.__required_keys__
+    assert "backend_binding" not in AgentState.__required_keys__
 
 
-def test_simon_state_validation_success():
-    """2. Pydantic TypeAdapter(SimonState) accepts a complete valid state."""
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_validation_success():
+    """2. Pydantic TypeAdapter(AgentState) accepts a complete valid state."""
+    adapter = TypeAdapter(AgentState)
     valid_state = {
         "messages": [],
         "task": "Do something",
@@ -61,9 +61,9 @@ def test_simon_state_validation_success():
     assert validated["task"] == "Do something"
 
 
-def test_simon_state_validation_failure():
+def test_agent_state_validation_failure():
     """3. Validation rejects a state missing a required key."""
-    adapter = TypeAdapter(SimonState)
+    adapter = TypeAdapter(AgentState)
     invalid_state = {
         "messages": [],
         "task": "Do something",
@@ -80,8 +80,8 @@ def test_router_decision_rejects_out_of_bounds_confidence(confidence):
         RouterDecision(tool=None, confidence=confidence)
 
 
-def test_simon_state_accepts_optional_r7_dispatch_fields():
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_accepts_optional_r7_dispatch_fields():
+    adapter = TypeAdapter(AgentState)
     state = {
         "messages": [],
         "task": "read README.md",
@@ -197,9 +197,9 @@ def test_architect_brief_missing_fields():
         ArchitectBrief(files=["a.py"])
 
 
-def test_simon_state_plan_accepts_brief():
-    """SimonState accepts both a string plan and ArchitectBrief."""
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_plan_accepts_brief():
+    """AgentState accepts both a string plan and ArchitectBrief."""
+    adapter = TypeAdapter(AgentState)
     valid_state = {
         "messages": [],
         "task": "Do something",
@@ -229,8 +229,8 @@ def test_bash_result_validation():
     assert res.args == ["ls"]
 
 
-def test_simon_state_executor_output_accepts_report():
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_executor_output_accepts_report():
+    adapter = TypeAdapter(AgentState)
     valid_state = {
         "messages": [],
         "task": "Do something",

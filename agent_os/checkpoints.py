@@ -52,7 +52,7 @@ CHECKPOINT_MODEL_TYPES = (
 
 
 def get_checkpoint_serializer() -> JsonPlusSerializer:
-    """Allow only the application models persisted in SimonState."""
+    """Allow only the application models persisted in AgentState."""
     return JsonPlusSerializer(allowed_msgpack_modules=CHECKPOINT_MODEL_TYPES)
 
 

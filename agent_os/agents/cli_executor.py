@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 from agent_os.backends import get_default_backend_registry
 from agent_os.schemas import ExecutionResult, PlanArtifact
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 def build_executor_prompt(plan: PlanArtifact) -> str:
@@ -32,7 +32,7 @@ def build_executor_prompt(plan: PlanArtifact) -> str:
     return prompt
 
 
-def build_cli_executor_invoker(backend: str) -> Callable[[SimonState], ExecutionResult]:
+def build_cli_executor_invoker(backend: str) -> Callable[[AgentState], ExecutionResult]:
     """
     Returns a callable that executes the CLI executor node logic for a specific backend.
     Supported backends: 'claude-code', 'codex'.

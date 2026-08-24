@@ -48,7 +48,7 @@ boundaries so that ownership is clear:
 - `127.0.0.1:4681` — Agent OS Console (separate private repo
   `agent-os-console`): read-only operator UI over the Agent OS API.
 - `127.0.0.1:4679` — application layer (out of scope for this repo, example:
-  SimonOS Node): life-OS routes like todos, calendar, notes owned by the
+  application Node): application routes like todos, calendar, notes owned by the
   embedding app, not by Agent OS.
 - `127.0.0.1:8642` — Hermes gateway (external): optional OpenAI-compatible
   `/v1/chat/completions` adapter that lets any OAI-style chat frontend
@@ -62,7 +62,7 @@ correctly 404 — this is by design.
 
 ## State and boundary models
 
-[`SimonState`](../agent_os/state.py) is a `TypedDict`, which lets LangGraph own
+[`AgentState`](../agent_os/state.py) is a `TypedDict`, which lets LangGraph own
 state-channel behavior without wrapping the entire graph state in a runtime
 model. `messages` uses LangGraph's `add_messages` reducer. Complex values cross
 node boundaries as Pydantic models from
@@ -183,7 +183,7 @@ Agent OS treats each model invocation as a cost boundary:
    it from leaking into graph routing.
 5. **8K message trimming** (`agent_os/messages.py`) bounds context at the
    Architect and Executor invocation boundaries without mutating persistent
-   `SimonState`. Full history remains available for HITL review and replay.
+   `AgentState`. Full history remains available for HITL review and replay.
 6. **Output caps** (`agent_os/output_limits.py`) bound retained UTF-8 data to
    100KB per Bash stream and 50KB per dispatcher result before checkpointing.
    `subprocess.run(capture_output=True)` still buffers before this cap applies.
@@ -209,12 +209,6 @@ the run ledger, streams replayable Server-Sent Events, and lets an operator
 approve or cancel interrupted work without coupling the UI to LangGraph
 internals. It is the seam between the runtime and any interface, including the
 default operator console or a private dashboard.
-
-The optional public concierge facade is a separate website-chat boundary. When
-configured, `/api/public/concierge/chat` answers from an approved public profile
-and records visitor handoffs as review-required leads. It does not call private
-memory connectors, tools, files, chats, or executor backends. See
-[`docs/public-concierge.md`](public-concierge.md).
 
 ## Extension points
 

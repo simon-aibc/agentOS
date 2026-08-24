@@ -78,6 +78,7 @@ def create_run(
     workspace: str | None,
     task: str | None,
     *,
+    task_signature: str | None = None,
     workspace_id: str | None = None,
     created_by: str | None = None,
     created_by_kind: str | None = None,
@@ -98,10 +99,10 @@ def create_run(
         conn.execute(
             """
             INSERT INTO runs (
-                run_id, thread_id, workspace, workspace_id, status, task,
+                run_id, thread_id, workspace, workspace_id, status, task, task_signature,
                 created_by, created_by_kind, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run_id,
@@ -110,6 +111,7 @@ def create_run(
                 eff_workspace_id,
                 "queued",
                 task,
+                task_signature,
                 created_by,
                 created_by_kind,
                 now,

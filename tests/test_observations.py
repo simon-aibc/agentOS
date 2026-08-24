@@ -59,23 +59,15 @@ def test_observations_persist_and_require_explicit_outcomes(tmp_path: Path) -> N
     assert updated.outcome_evidence == "Operator adjusted the delivered artifact."
 
 
-def test_task_signature_is_deterministic_private_and_persisted_for_new_writes(
+def test_task_signature_hashes_exact_submitted_task_and_persists_for_new_writes(
     tmp_path: Path,
 ) -> None:
-    first_task = (
-        "SimonOS private task 01AAA: Prepare weekly report\n\n"
-        "Prepare weekly report for leadership\n\n"
-        "Private application context:\n- Requested workspace: /private/path"
-    )
-    same_shape = (
-        "SimonOS private task 01BBB: Prepare weekly report\n\n"
-        "Prepare weekly report for leadership\n\n"
-        "Private application context:\n- Requested workspace: /different/path"
-    )
+    first_task = "Prepare weekly report for leadership"
+    different_task = "Prepare weekly report for leadership\nContext: finance"
     signature = task_signature_for_input(first_task)
 
     assert signature is not None
-    assert signature == task_signature_for_input(same_shape)
+    assert signature != task_signature_for_input(different_task)
     assert "weekly report" not in signature
 
     store = _store(tmp_path / "observations.db")

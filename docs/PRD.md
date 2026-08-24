@@ -66,7 +66,7 @@ For a semantic request such as "add type hints and verify compilation":
 
 ### State and graph
 
-- The graph uses a typed `SimonState` with Pydantic boundary artifacts.
+- The graph uses a typed `AgentState` with Pydantic boundary artifacts.
 - Node destinations are explicit and testable.
 - Routing loops are bounded by a configurable recursion limit.
 

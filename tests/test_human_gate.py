@@ -4,10 +4,10 @@ import pytest
 
 from agent_os.nodes.human_gate import human_gate_node, normalize_human_feedback
 from agent_os.schemas import ArchitectBrief, CodingPlan
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def make_state(plan: str | ArchitectBrief | None) -> SimonState:
+def make_state(plan: str | ArchitectBrief | None) -> AgentState:
     return {
         "messages": [],
         "task": "review this plan",

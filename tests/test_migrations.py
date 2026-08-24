@@ -235,9 +235,12 @@ def test_runs_migration_v1_to_v2_with_backfill_and_backup(tmp_path: Path):
         conn.execute("PRAGMA user_version = 1")
         conn.commit()
 
-    # 2. Run Phase 0 migration
+    # 2. Run additive run-ledger migrations
     applied = run_migrations(db_file, RUNS_MIGRATIONS, baseline_version=1)
-    assert applied == ["0002_add_runs_principal_and_approvals"]
+    assert applied == [
+        "0002_add_runs_principal_and_approvals",
+        "0003_add_runs_task_signature",
+    ]
 
     # 3. Verify backup creation
     assert (tmp_path / "runs_test.db.bak-1").exists()
@@ -246,13 +249,14 @@ def test_runs_migration_v1_to_v2_with_backfill_and_backup(tmp_path: Path):
     with _sqlite_connection(db_file) as conn:
         conn.row_factory = sqlite3.Row
         ver = conn.execute("PRAGMA user_version").fetchone()[0]
-        assert ver == 2
+        assert ver == 3
 
         # Verify columns exist
         cols = {r["name"] for r in conn.execute("PRAGMA table_info(runs)").fetchall()}
         assert "workspace_id" in cols
         assert "created_by" in cols
         assert "created_by_kind" in cols
+        assert "task_signature" in cols
         assert "workspace" in cols  # Legacy column preserved
 
         # Verify backfill

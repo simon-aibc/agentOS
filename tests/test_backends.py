@@ -8,7 +8,7 @@ from agent_os.backends import (
     BackendRegistry,
 )
 from agent_os.schemas import ArchitectBrief
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 class FakeAdapter:
@@ -16,7 +16,7 @@ class FakeAdapter:
     binary_name = "fake-cli"
     supported_roles = frozenset({"architect", "executor"})
 
-    def build_invoker(self, role: str) -> Callable[[SimonState], object]:
+    def build_invoker(self, role: str) -> Callable[[AgentState], object]:
         return lambda state: state
 
     def authentication_status(self) -> AuthStatus:
@@ -28,7 +28,7 @@ class ArchitectOnlyAdapter:
     binary_name = "architect-cli"
     supported_roles = frozenset({"architect"})
 
-    def build_invoker(self, role: str) -> Callable[[SimonState], object]:
+    def build_invoker(self, role: str) -> Callable[[AgentState], object]:
         return lambda state: ArchitectBrief(files=[], changes=[], verify_cmd="")
 
     def authentication_status(self) -> AuthStatus:

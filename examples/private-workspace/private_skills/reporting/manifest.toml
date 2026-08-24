@@ -1,0 +1,7 @@
+[skill]
+name = "private-reporting"
+version = "1.0.0"
+
+[[skill.handlers]]
+match = ["summarize report", "weekly report"]
+entrypoint = "handlers:summarize_report"

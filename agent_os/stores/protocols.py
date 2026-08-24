@@ -22,6 +22,7 @@ class RunStore(Protocol):
         workspace: str | None,
         task: str | None,
         *,
+        task_signature: str | None = None,
         workspace_id: str | None = None,
         created_by: str | None = None,
         created_by_kind: str | None = None,

@@ -9,7 +9,7 @@ from agent_os.schemas import (
     ExecutorReport,
     PlanArtifact,
 )
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 Route = Literal["architect", "executor", "tool", "end"]
 RouterMode = Literal["cascade", "direct-escalation"]
@@ -47,7 +47,7 @@ def build_runtime_config(thread_id: str) -> dict[str, object]:
     }
 
 
-def route_from_state(state: SimonState) -> Route:
+def route_from_state(state: AgentState) -> Route:
     executor_output = state.get("executor_output")
     human_feedback = state.get("human_feedback")
 

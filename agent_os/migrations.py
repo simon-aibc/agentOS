@@ -92,6 +92,12 @@ RUNS_MIGRATIONS: tuple[Migration, ...] = (
         handler=_backfill_runs_workspace_id,
         description="Add principal columns to runs and create run_approvals audit table",
     ),
+    Migration(
+        id="0003_add_runs_task_signature",
+        version=3,
+        statements=("ALTER TABLE runs ADD COLUMN task_signature TEXT",),
+        description="Add client-provided opaque task signatures to runs",
+    ),
 )
 
 SESSIONS_MIGRATIONS: tuple[Migration, ...] = (

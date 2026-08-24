@@ -4,10 +4,10 @@ from langchain_core.runnables import RunnableLambda
 
 from agent_os.context import load_injected_context
 from agent_os.schemas import ArchitectBrief, PlanArtifact
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def _sync_planner_logic(state: SimonState) -> dict:
+def _sync_planner_logic(state: AgentState) -> dict:
     result: dict[str, object] = {}
     if not isinstance(state.get("plan"), (ArchitectBrief, PlanArtifact)):
         result["plan"] = state["task"]
@@ -47,7 +47,7 @@ def _sync_planner_logic(state: SimonState) -> dict:
     return result
 
 
-async def _async_planner_logic(state: SimonState) -> dict:
+async def _async_planner_logic(state: AgentState) -> dict:
     result: dict[str, object] = {}
     if not isinstance(state.get("plan"), (ArchitectBrief, PlanArtifact)):
         result["plan"] = state["task"]

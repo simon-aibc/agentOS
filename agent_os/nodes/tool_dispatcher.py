@@ -14,7 +14,7 @@ from agent_os.output_limits import DISPATCHER_OUTPUT_MAX_BYTES, truncate_utf8
 from agent_os.routing import get_router_mode
 from agent_os.schemas import BashResult, ExecutionResult, ToolExecutionResult
 from agent_os.skills import RegisteredSkill, SkillRegistry
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 ROUTER_CONFIDENCE_THRESHOLD = 0.80
 DispatcherCommand = Command[Literal["supervisor", "__end__"]]
@@ -83,11 +83,11 @@ def _invoke_skill(
 def build_tool_dispatcher_node(
     registry: SkillRegistry | None = None,
     router_llm: BaseChatModel | None = None,
-) -> Callable[[SimonState], DispatcherCommand]:
+) -> Callable[[AgentState], DispatcherCommand]:
     """Build an injectable Tier-1/Tier-2/Tier-3 dispatcher node."""
     resolved_registry = registry or build_default_registry()
 
-    def dispatch(state: SimonState) -> DispatcherCommand:
+    def dispatch(state: AgentState) -> DispatcherCommand:
         task = state["task"]
         deterministic_skill = resolved_registry.deterministic_match(task)
         try:

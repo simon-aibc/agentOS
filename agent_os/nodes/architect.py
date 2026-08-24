@@ -5,10 +5,10 @@ from agent_os.agents.cli_architect import build_cli_architect_invoker
 from agent_os.llm import invoke_with_llm_retry
 from agent_os.messages import trim_agent_messages
 from agent_os.schemas import ArchitectBrief, PlanArtifact
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def architect_node(state: SimonState) -> dict[str, ArchitectBrief]:
+def architect_node(state: AgentState) -> dict[str, ArchitectBrief]:
     """Architect node wrapper that invokes the ReAct agent."""
     prompt = state["task"]
     feedback = state.get("human_feedback")

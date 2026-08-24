@@ -39,9 +39,9 @@ class BackendBinding(BaseModel):
         return str(Path(text).expanduser().resolve())
 
 
-class SimonState(TypedDict):
+class AgentState(TypedDict):
     """
-    State for the SimonOS agent graph.
+    State for the Agent OS graph.
     """
 
     messages: Annotated[list[AnyMessage], add_messages]

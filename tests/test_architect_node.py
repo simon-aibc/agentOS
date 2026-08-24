@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage
 from agent_os.cli_backends import CliBackendError
 from agent_os.nodes.architect import architect_node
 from agent_os.schemas import ArchitectBrief
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 from agent_os.strategies import StrategyHint
 
 
@@ -15,7 +15,7 @@ def clear_cli_architect_backend(monkeypatch):
     monkeypatch.delenv("LLM_ARCHITECT", raising=False)
 
 
-def make_state(human_feedback: str | None = None) -> SimonState:
+def make_state(human_feedback: str | None = None) -> AgentState:
     return {
         "messages": [],
         "task": "do architecture",
