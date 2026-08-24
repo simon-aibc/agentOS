@@ -128,17 +128,28 @@ def test_run_api_rejects_invalid_strategy_override():
     assert response.json()["detail"] == "Strategy is not allowed for this task kind"
 
 
-def test_run_api_accepts_opaque_task_signature_and_rejects_invalid_values():
+def test_run_api_accepts_opaque_task_signature_and_rejects_invalid_values(
+    tmp_path, monkeypatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(tmp_path))
     signature = "sha256:v1:" + "a" * 64
     created = client.post(
-        "/api/runs", json={"task": "run a report", "task_signature": signature}
+        "/api/runs",
+        json={
+            "task": "run a report",
+            "workspace": "workspace",
+            "task_signature": signature,
+        },
     )
     assert created.status_code == 200
     run = client.get(f"/api/runs/{created.json()['run_id']}").json()
     assert run["task_signature"] == signature
 
     invalid = client.post(
-        "/api/runs", json={"task": "run a report", "task_signature": "report"}
+        "/api/runs",
+        json={"task": "run a report", "workspace": "workspace", "task_signature": "report"},
     )
     assert invalid.status_code == 422
     assert invalid.json()["detail"] == "task_signature must be a sha256:v1 digest"
