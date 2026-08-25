@@ -295,6 +295,11 @@ class CodexAdapter:
                 with write_schema_file(schema_model, strict=True) as schema_path:
                     args = [
                         "exec",
+                        # Agent OS executes from its sandbox root, which may be
+                        # a trusted parent directory rather than a Git worktree.
+                        # This bypasses only Codex's repository-presence check;
+                        # the adapter still pins cwd and enforces sandbox mode.
+                        "--skip-git-repo-check",
                         "--sandbox",
                         sandbox_mode,
                         "--output-schema",

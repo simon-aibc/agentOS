@@ -12,6 +12,14 @@ LLM_RETRY_BACKOFF_SECONDS = (2, 4, 8)
 
 
 def _is_retryable_llm_error(error: Exception) -> bool:
+    # CLI executors can have already modified the sandbox before their process
+    # timeout is reported. Retrying them automatically risks duplicate or
+    # conflicting side effects; an operator must inspect and resume explicitly.
+    from agent_os.cli_backends import CliBackendTimeout
+
+    if isinstance(error, CliBackendTimeout):
+        return False
+
     message = str(error).casefold()
     retryable_markers = (
         "429",

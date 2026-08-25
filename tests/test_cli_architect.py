@@ -200,6 +200,25 @@ def test_build_cli_architect_invoker_codex_success(monkeypatch, tmp_path):
         assert brief.verify_cmd == "v2"
 
 
+def test_codex_adapter_skips_git_repository_check_inside_agent_os_sandbox(monkeypatch, tmp_path):
+    import json
+
+    from agent_os.agents.cli_architect import build_cli_architect_invoker
+
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(sandbox))
+    invoker = build_cli_architect_invoker("codex")
+
+    def mock_run_command(_binary, args):
+        assert "--skip-git-repo-check" in args
+        output_path = args[args.index("--output-last-message") + 1]
+        with open(output_path, "w") as output_file:
+            json.dump({"summary": "s", "files": [], "changes": [], "verify_cmd": ""}, output_file)
+
+    invoker({"task": "test", "human_feedback": None})
+
+
 def test_build_cli_architect_invoker_carries_acceptance_criteria(monkeypatch, tmp_path):
     import json
 
