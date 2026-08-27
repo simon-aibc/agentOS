@@ -125,6 +125,10 @@ def build_parser() -> argparse.ArgumentParser:
     doctor_parser.add_argument(
         "--json", dest="json_output", action="store_true", help="Output as JSON."
     )
+    doctor_parser.add_argument(
+        "--workspace",
+        help="Validate backend bindings from this workspace.toml or workspace directory.",
+    )
 
     update_parser = subparsers.add_parser(
         "update", help="Check and apply AgentOS updates."
@@ -1683,7 +1687,7 @@ async def async_main(
     if args.command == "doctor":
         from agent_os.cli.doctor import run_doctor
 
-        exit_code, output = run_doctor(args.json_output)
+        exit_code, output = run_doctor(args.json_output, args.workspace)
         print(output)
         return exit_code
 
