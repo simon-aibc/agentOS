@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from agent_os.backends import AntigravityAdapter, AuthStatus, BackendRegistry
-from agent_os.cli.doctor import run_doctor
+from agent_os.cli.doctor import POLICY_MODE_OFF_WARNING, run_doctor
 
 
 class MockAdapter:
@@ -95,6 +95,61 @@ executor = "codex"
     assert data["resolved_config"]["architect"] == "cli/codex"
     assert data["resolved_config"]["executor"] == "cli/codex"
     assert data["profile_source"] == "workspace"
+
+
+def test_doctor_fails_workspace_with_policy_mode_off(monkeypatch, tmp_path):
+    from agent_os.backends import build_default_registry as real_registry
+
+    monkeypatch.setattr("agent_os.cli.doctor.build_default_registry", real_registry)
+    monkeypatch.setattr("shutil.which", lambda binary: f"/fake/{binary}")
+    workspace = tmp_path / "workspace.toml"
+    workspace.write_text(
+        """
+[workspace]
+name = "doctor-workspace"
+
+[backends]
+architect = "codex"
+executor = "codex"
+
+[policy]
+mode = "off"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    exit_code, output = run_doctor(json_output=True, workspace_path=str(workspace))
+
+    assert exit_code == 1
+    data = json.loads(output)
+    assert data["resolved_config"]["policy_mode"] == "off"
+    assert POLICY_MODE_OFF_WARNING in data["warnings"]
+
+
+def test_doctor_workspace_default_policy_mode_is_ok(monkeypatch, tmp_path):
+    from agent_os.backends import build_default_registry as real_registry
+
+    monkeypatch.setattr("agent_os.cli.doctor.build_default_registry", real_registry)
+    monkeypatch.setattr("shutil.which", lambda binary: f"/fake/{binary}")
+    workspace = tmp_path / "workspace.toml"
+    workspace.write_text(
+        """
+[workspace]
+name = "doctor-workspace"
+
+[backends]
+architect = "codex"
+executor = "codex"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    exit_code, output = run_doctor(json_output=True, workspace_path=str(workspace))
+
+    assert exit_code == 0, output
+    data = json.loads(output)
+    assert data["resolved_config"]["policy_mode"] == "manual"
+    assert POLICY_MODE_OFF_WARNING not in data["warnings"]
 
 
 def test_doctor_missing_binary(monkeypatch):
