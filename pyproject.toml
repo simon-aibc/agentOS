@@ -85,6 +85,7 @@ filterwarnings = [
 ]
 markers = [
     "integration: requires explicitly enabled external services or CLI tools",
+    "network: allows real outbound network connections in offline test suite",
 ]
 
 [tool.ruff]
