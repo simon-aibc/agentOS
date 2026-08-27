@@ -11,7 +11,10 @@ from agent_os.sandbox import get_sandbox_root
 from agent_os.state import BackendBinding
 
 
-def run_doctor(json_output: bool) -> tuple[int, str]:
+def run_doctor(
+    json_output: bool,
+    workspace_path: str | None = None,
+) -> tuple[int, str]:
     warnings: list[str] = []
     exit_code = 0
 
@@ -58,25 +61,53 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
     profile_name_val = None
     profile_source = None
     resolved_profile = None
-    try:
-        profile_file = profile_config.load_profiles()
-        profile_name_val, profile_source = profile_config.select_profile_name(
-            None,
-            os.getenv("AGENT_OS_PROFILE"),
-            profile_file.default,
-        )
-        if profile_name_val is not None:
-            resolved_profile = profile_config.resolve_profile(
-                profile_file,
-                profile_name_val,
-                registry,
-                get_sandbox_root().resolve(),
-            )
-    except Exception as error:
-        warnings.append(f"Profile error: {error}")
-        exit_code = 1
+    workspace_binding = None
+    effective_workspace = workspace_path or os.getenv("AGENT_OS_WORKSPACE")
+    if effective_workspace:
+        try:
+            from agent_os.workspace import load_workspace
 
-    if resolved_profile is None:
+            workspace = load_workspace(effective_workspace)
+            configured_backends = dict(workspace.backends)
+            workspace_binding = BackendBinding(
+                router=configured_backends.get("router"),
+                architect=_normalize_workspace_backend(configured_backends.get("architect")),
+                executor=_normalize_workspace_backend(configured_backends.get("executor")),
+                profile_name=None,
+                sandbox_root=str(get_sandbox_root().resolve()),
+            )
+        except Exception as error:
+            warnings.append(f"Workspace error: {error}")
+            exit_code = 1
+    else:
+        try:
+            profile_file = profile_config.load_profiles()
+            profile_name_val, profile_source = profile_config.select_profile_name(
+                None,
+                os.getenv("AGENT_OS_PROFILE"),
+                profile_file.default,
+            )
+            if profile_name_val is not None:
+                resolved_profile = profile_config.resolve_profile(
+                    profile_file,
+                    profile_name_val,
+                    registry,
+                    get_sandbox_root().resolve(),
+                )
+        except Exception as error:
+            warnings.append(f"Profile error: {error}")
+            exit_code = 1
+
+    if workspace_binding is not None:
+        resolved_config = {
+            "router": workspace_binding.router,
+            "architect": workspace_binding.architect,
+            "executor": workspace_binding.executor,
+            "sandbox": workspace_binding.sandbox_root,
+        }
+        profile_name_val = workspace_binding.profile_name
+        profile_source = "workspace"
+    elif resolved_profile is None:
         resolved_config = {
             "router": os.getenv("LLM_ROUTER"),
             "architect": os.getenv("LLM_ARCHITECT"),
@@ -267,3 +298,12 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
         lines.append("STATUS: FAIL")
 
     return exit_code, "\n".join(lines)
+
+
+def _normalize_workspace_backend(value: object) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    return normalized if normalized.startswith("cli/") else f"cli/{normalized}"

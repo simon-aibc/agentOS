@@ -45,7 +45,7 @@ def setup_doctor_env(monkeypatch, tmp_path):
 
 def test_doctor_healthy(tmp_path):
     exit_code, output = run_doctor(json_output=True)
-    assert exit_code == 0
+    assert exit_code == 0, output
     data = json.loads(output)
 
     assert data["checkpoints_db"]["writable"] is True
@@ -68,6 +68,33 @@ def test_doctor_healthy(tmp_path):
         "profile_name": None,
         "sandbox_root": data["resolved_config"]["sandbox"],
     }
+
+
+def test_doctor_uses_workspace_backend_binding(monkeypatch, tmp_path):
+    from agent_os.backends import build_default_registry as real_registry
+
+    monkeypatch.setattr("agent_os.cli.doctor.build_default_registry", real_registry)
+    monkeypatch.setattr("shutil.which", lambda binary: f"/fake/{binary}")
+    workspace = tmp_path / "workspace.toml"
+    workspace.write_text(
+        """
+[workspace]
+name = "doctor-workspace"
+
+[backends]
+architect = "codex"
+executor = "codex"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    exit_code, output = run_doctor(json_output=True, workspace_path=str(workspace))
+
+    assert exit_code == 0, output
+    data = json.loads(output)
+    assert data["resolved_config"]["architect"] == "cli/codex"
+    assert data["resolved_config"]["executor"] == "cli/codex"
+    assert data["profile_source"] == "workspace"
 
 
 def test_doctor_missing_binary(monkeypatch):
