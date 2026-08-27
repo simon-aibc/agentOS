@@ -28,6 +28,9 @@ _FORBIDDEN_CLI_ARGS = {
 _FORBIDDEN_CLI_ARG_PREFIXES = tuple(
     f"{option}=" for option in _FORBIDDEN_CLI_ARGS if option.startswith("--")
 )
+DEFAULT_CLI_TIMEOUT_SECONDS = 300
+MIN_CLI_TIMEOUT_SECONDS = 30
+MAX_CLI_TIMEOUT_SECONDS = 1800
 
 
 class CliBackendError(Exception):
@@ -106,6 +109,61 @@ def build_safe_subprocess_env() -> dict[str, str]:
     return safe_env
 
 
+def prepare_codex_home(env: dict[str, str]) -> dict[str, str]:
+    """Give Agent OS Codex invocations an isolated, authenticated CLI home.
+
+    The desktop app and the standalone Codex CLI can update their model caches
+    independently. Sharing ``~/.codex`` caused an incompatible cache schema to
+    stall Agent OS executor calls. Keep the CLI cache/config state separate,
+    while linking only the existing authentication file so credentials are not
+    copied into the Agent OS runtime directory.
+    """
+    prepared = dict(env)
+    user_home = Path(prepared.get("HOME") or Path.home()).expanduser()
+    source_home = user_home / ".codex"
+    runtime_home = Path(
+        prepared.get("AGENT_OS_CODEX_HOME") or user_home / ".agent-os" / "codex"
+    ).expanduser()
+
+    if runtime_home.resolve() == source_home.resolve():
+        # An operator explicitly chose the shared home. Preserve that intent.
+        return prepared
+
+    runtime_home.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:
+        runtime_home.chmod(0o700)
+    except OSError:
+        # The directory is still usable; a later CLI auth error will be clearer
+        # than failing an otherwise safe invocation because chmod was rejected.
+        pass
+
+    source_auth = source_home / "auth.json"
+    runtime_auth = runtime_home / "auth.json"
+    if source_auth.is_file() and not runtime_auth.exists() and not runtime_auth.is_symlink():
+        runtime_auth.symlink_to(source_auth)
+
+    prepared["CODEX_HOME"] = str(runtime_home)
+    return prepared
+
+
+def cli_timeout_seconds(value: int | None = None) -> int:
+    """Return a bounded CLI timeout, optionally configured for Agent OS."""
+    if value is not None:
+        # Explicit call-site timeouts are part of the public helper contract
+        # (and are useful for fast tests); only deployment configuration is
+        # bounded defensively.
+        return int(value)
+
+    raw_value: object = os.getenv(
+        "AGENT_OS_CLI_TIMEOUT_SECONDS", DEFAULT_CLI_TIMEOUT_SECONDS
+    )
+    try:
+        timeout = int(raw_value)
+    except (TypeError, ValueError):
+        timeout = DEFAULT_CLI_TIMEOUT_SECONDS
+    return min(max(timeout, MIN_CLI_TIMEOUT_SECONDS), MAX_CLI_TIMEOUT_SECONDS)
+
+
 def _validate_cli_args(args: list[str]) -> None:
     """Reject arguments that can escape or disable the configured sandbox."""
     for index, arg in enumerate(args):
@@ -182,18 +240,21 @@ def write_schema_file(
 def run_cli_command(
     binary: str,
     args: list[str],
-    timeout_seconds: int = 300,
+    timeout_seconds: int | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
     Run a CLI command in the sandbox with a sanitized environment.
     Raises clear errors on timeout or non-zero exit.
     """
     _validate_cli_args(args)
+    effective_timeout_seconds = cli_timeout_seconds(timeout_seconds)
     binary_path = ensure_binary(binary)
     sandbox_root = get_sandbox_root()
     sandbox_root.mkdir(parents=True, exist_ok=True)
 
     safe_env = build_safe_subprocess_env()
+    if binary == "codex":
+        safe_env = prepare_codex_home(safe_env)
     cmd = [binary_path] + args
 
     try:
@@ -204,13 +265,13 @@ def run_cli_command(
             shell=False,
             capture_output=True,
             text=True,
-            timeout=timeout_seconds,
+            timeout=effective_timeout_seconds,
             env=safe_env,
         )
     except subprocess.TimeoutExpired as e:
         stderr_excerpt = _redact_secrets_in_text(_coerce_text(e.stderr)[-500:])
         raise CliBackendTimeout(
-            f"Command '{binary}' timed out after {timeout_seconds} seconds. "
+            f"Command '{binary}' timed out after {effective_timeout_seconds} seconds. "
             f"Stderr excerpt: {stderr_excerpt}"
         ) from e
 

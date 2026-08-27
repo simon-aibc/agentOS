@@ -165,3 +165,21 @@ def test_invoke_with_llm_retry_does_not_retry_non_transient_errors(mock_sleep):
 
     operation.assert_called_once()
     mock_sleep.assert_not_called()
+
+
+@patch("agent_os.llm.time.sleep")
+def test_cli_backend_timeout_is_not_retried(mock_sleep):
+    from agent_os.cli_backends import CliBackendTimeout
+
+    attempts = 0
+
+    def operation():
+        nonlocal attempts
+        attempts += 1
+        raise CliBackendTimeout("executor timed out")
+
+    with pytest.raises(CliBackendTimeout):
+        invoke_with_llm_retry(operation)
+
+    assert attempts == 1
+    mock_sleep.assert_not_called()
