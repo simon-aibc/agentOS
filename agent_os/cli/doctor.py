@@ -10,6 +10,11 @@ from agent_os.checkpoints import DEFAULT_CHECKPOINT_DB
 from agent_os.sandbox import get_sandbox_root
 from agent_os.state import BackendBinding
 
+POLICY_MODE_OFF_WARNING = (
+    'Workspace policy mode "off" disables all policy checks, including the '
+    "payment/privileged floor, and is outside the supported deployment envelope."
+)
+
 
 def run_doctor(
     json_output: bool,
@@ -62,12 +67,17 @@ def run_doctor(
     profile_source = None
     resolved_profile = None
     workspace_binding = None
+    policy_mode = "manual"
     effective_workspace = workspace_path or os.getenv("AGENT_OS_WORKSPACE")
     if effective_workspace:
         try:
             from agent_os.workspace import load_workspace
 
             workspace = load_workspace(effective_workspace)
+            policy_mode = str(workspace.policy.get("mode", "manual"))
+            if policy_mode == "off":
+                warnings.append(POLICY_MODE_OFF_WARNING)
+                exit_code = 1
             configured_backends = dict(workspace.backends)
             workspace_binding = BackendBinding(
                 router=configured_backends.get("router"),
@@ -104,6 +114,7 @@ def run_doctor(
             "architect": workspace_binding.architect,
             "executor": workspace_binding.executor,
             "sandbox": workspace_binding.sandbox_root,
+            "policy_mode": policy_mode,
         }
         profile_name_val = workspace_binding.profile_name
         profile_source = "workspace"
@@ -113,6 +124,7 @@ def run_doctor(
             "architect": os.getenv("LLM_ARCHITECT"),
             "executor": os.getenv("LLM_EXECUTOR"),
             "sandbox": str(get_sandbox_root().resolve()),
+            "policy_mode": policy_mode,
         }
     else:
         resolved_config = {
@@ -120,6 +132,7 @@ def run_doctor(
             "architect": resolved_profile.architect,
             "executor": resolved_profile.executor,
             "sandbox": resolved_profile.sandbox,
+            "policy_mode": policy_mode,
         }
 
     checkpoint_env = os.getenv("AGENT_OS_CHECKPOINTS_DB")
