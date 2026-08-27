@@ -161,10 +161,26 @@ For a semantic request such as "add type hints and verify compilation":
 - Checkpoint deserialization allowlists application model types.
 - Checkpoints, sandboxes, credentials, and local dogfood logs remain ignored by
   Git.
+- In the supported production policy modes (`manual` and `smart`), `payment` and
+  `privileged` proposals are denied rather than routed to human approval. The
+  product does not currently express threshold- or role-based exceptions such
+  as "payments above an amount require CEO approval"; `mode="off"` is an unsafe,
+  local-only test escape hatch outside the supported deployment envelope.
+- Learned permission rules are exact, workspace-local memory-write rules, not
+  per-user authorization. `taught_by` records who created a rule for provenance,
+  but it is not part of rule lookup or enforcement and does not provide RBAC or
+  ABAC.
+- Durable SQLite checkpoints make graph state resumable, but the Runtime API and
+  scheduler do not provide a durable distributed work queue. Run dispatch has
+  no worker lease, heartbeat, attempt accounting, automatic redelivery,
+  deduplication key, or dead-letter queue.
 
 These are application-level controls. They do not isolate the network, child
 processes, CPU, memory, or the host filesystem from hostile executable code.
 Untrusted workloads require a container or microVM.
+
+The complete supported deployment envelope and claim boundaries are documented
+in [`platform/known-limitations.md`](platform/known-limitations.md).
 
 ## 6. Supported backends
 
