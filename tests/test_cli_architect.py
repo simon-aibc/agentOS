@@ -204,19 +204,37 @@ def test_codex_adapter_skips_git_repository_check_inside_agent_os_sandbox(monkey
     import json
 
     from agent_os.agents.cli_architect import build_cli_architect_invoker
+    from agent_os.schemas import CodingPlan
 
     sandbox = tmp_path / "sandbox"
     sandbox.mkdir()
     monkeypatch.setenv("AGENT_OS_SANDBOX", str(sandbox))
     invoker = build_cli_architect_invoker("codex")
 
-    def mock_run_command(_binary, args):
+    def mock_run_command(binary, args):
+        assert binary == "codex"
         assert "--skip-git-repo-check" in args
         output_path = args[args.index("--output-last-message") + 1]
         with open(output_path, "w") as output_file:
-            json.dump({"summary": "s", "files": [], "changes": [], "verify_cmd": ""}, output_file)
+            json.dump(
+                {
+                    "summary": "s",
+                    "files": ["plan.md"],
+                    "changes": ["document plan"],
+                    "verify_cmd": "pytest",
+                },
+                output_file,
+            )
+        return MagicMock()
 
-    invoker({"task": "test", "human_feedback": None})
+    with patch("agent_os.backends.run_cli_command", side_effect=mock_run_command):
+        brief = invoker({"task": "test", "human_feedback": None})
+
+    assert isinstance(brief, CodingPlan)
+    assert brief.summary == "s"
+    assert brief.files == ["plan.md"]
+    assert brief.changes == ["document plan"]
+    assert brief.verify_cmd == "pytest"
 
 
 def test_build_cli_architect_invoker_carries_acceptance_criteria(monkeypatch, tmp_path):
