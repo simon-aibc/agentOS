@@ -1,0 +1,8 @@
+[skill]
+name = "link_ingest"
+version = "1.0.0"
+description = "Safely retrieve readable text and metadata from a single public URL."
+
+[[skill.handlers]]
+match = ["link_ingest", "link-ingest"]
+entrypoint = "handlers:link_ingest"
