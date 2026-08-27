@@ -211,9 +211,13 @@ def test_doctor_mode_dispatch(monkeypatch, capsys):
     import agent_os.cli.doctor
     from agent_os.cli.app import main
 
-    monkeypatch.setattr(
-        agent_os.cli.doctor, "run_doctor", lambda json_output: (0, "DOCTOR OK")
-    )
+    calls: list[tuple[bool, str | None]] = []
+
+    def fake_run_doctor(json_output, workspace_path=None):
+        calls.append((json_output, workspace_path))
+        return (0, "DOCTOR OK")
+
+    monkeypatch.setattr(agent_os.cli.doctor, "run_doctor", fake_run_doctor)
 
     result = main(["doctor"])
     assert result == 0
@@ -224,3 +228,9 @@ def test_doctor_mode_dispatch(monkeypatch, capsys):
     assert result2 == 0
     captured2 = capsys.readouterr()
     assert "DOCTOR OK" in captured2.out
+    assert calls[-1] == (True, None)
+
+    result3 = main(["doctor", "--workspace", "ws.toml"])
+    assert result3 == 0
+    capsys.readouterr()
+    assert calls[-1] == (False, "ws.toml")

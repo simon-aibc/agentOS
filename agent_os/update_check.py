@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import time
+import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -200,6 +201,18 @@ def check_for_update(
         )
         _write_cache(resolved_cache, info)
         return info
+    except urllib.error.HTTPError as error:
+        try:
+            logger.debug("Update check failed (safe fallback): %s", error)
+            return UpdateInfo(
+                current_version=current_ver,
+                latest_version=current_ver,
+                update_available=False,
+                checked_at=now_iso,
+                error=str(error),
+            )
+        finally:
+            error.close()
     except Exception as exc:
         logger.debug("Update check failed (safe fallback): %s", exc)
         return UpdateInfo(

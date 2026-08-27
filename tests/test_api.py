@@ -9,6 +9,7 @@ from agent_os.checkpoints import CHECKPOINT_DB_ENV
 from agent_os.runs import append_event, create_run, get_run, list_events, set_status
 from agent_os.server.api import EXECUTION_TOKEN_ENV, app, build_graph_data
 from agent_os.server.runtime import package_version
+from agent_os.update_check import UpdateInfo
 
 client = TestClient(app)
 
@@ -34,13 +35,30 @@ def test_health_never_fetches_network_inline(tmp_path, monkeypatch):
         assert mock_urlopen.call_count == 0  # Zero network calls on health poll!
 
 
-def test_update_check_api_endpoint():
+def test_update_check_api_endpoint(monkeypatch):
+    mock_info = UpdateInfo(
+        current_version="2.2.0",
+        latest_version="2.3.0",
+        update_available=True,
+        release_url="https://github.com/simon-aibc/agent-os-langgraph/releases/tag/v2.3.0",
+    )
+    monkeypatch.setattr(
+        "agent_os.server.api.check_for_update",
+        lambda *args, **kwargs: mock_info,
+    )
     resp = client.post("/api/update/check")
     assert resp.status_code == 200
     data = resp.json()
     assert "current_version" in data
     assert "latest_version" in data
     assert "update_available" in data
+    assert data["current_version"] == "2.2.0"
+    assert data["latest_version"] == "2.3.0"
+    assert data["update_available"] is True
+    assert (
+        data["release_url"]
+        == "https://github.com/simon-aibc/agent-os-langgraph/releases/tag/v2.3.0"
+    )
 
 
 def test_health_reports_configured_workspace(tmp_path, monkeypatch):
