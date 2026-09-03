@@ -62,6 +62,13 @@ dev = [
     "pytest==9.1.1",
     "ruff==0.16.4",
     "httpx",
+    # anyio 4.15.0 deprecated the `anyio.abc.BlockingPortal` alias, which Starlette's
+    # TestClient still dereferences at import time (through 1.6.0, the latest release).
+    # That turns collection into 6 errors under `pytest -W error`. Constrain the test
+    # environment rather than weaken the documented warnings-as-errors gate; drop this
+    # once Starlette imports the alias from `anyio.from_thread`. Test-only on purpose:
+    # the server path never imports TestClient, so `[serve]` installs stay unconstrained.
+    "anyio==4.14.2",
 ]
 serve = [
     "fastapi",
