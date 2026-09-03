@@ -5,8 +5,6 @@ from agent_os.agents.cli_executor import build_cli_executor_invoker
 from agent_os.agents.executor import build_executor_agent
 from agent_os.cli_backends import CliBackendError
 from agent_os.llm import (
-    get_architect_llm,
-    get_executor_llm,
     get_router_llm,
     invoke_with_llm_retry,
 )
@@ -88,12 +86,36 @@ def _execution_evidence(
 _UNSET = object()
 
 
+def _judge_llm_for_model(model: str) -> object | None:
+    """Build a judge LLM only for a model litellm can actually dispatch.
+
+    The semantic judge routes through litellm. A ``cli/*`` binding runs an
+    external CLI with no chat-completion endpoint, so litellm rejects it with a
+    ``BadRequestError`` on every call; an empty binding has nothing to route.
+    Return ``None`` for those so the judge is skipped cleanly instead of issuing
+    a request guaranteed to fail.
+    """
+    model = (model or "").strip()
+    if not model or model.startswith("cli/"):
+        return None
+    try:
+        return get_router_llm(model)
+    except Exception:
+        return None
+
+
 def _get_default_judge_llm() -> object | None:
-    for getter in (get_executor_llm, get_architect_llm, get_router_llm):
-        try:
-            return getter()
-        except Exception:
-            continue
+    """Resolve a litellm-routable LLM for the semantic judge, or None.
+
+    Prefer the cheap router, then any non-cli architect/executor binding. When
+    every role is cli-bound or unset — the common local setup, where architect
+    and executor are ``cli/codex`` — return None to disable semantic checks
+    rather than break every run with a provider error.
+    """
+    for env_var in ("LLM_ROUTER", "LLM_ARCHITECT", "LLM_EXECUTOR"):
+        judge = _judge_llm_for_model(os.getenv(env_var, ""))
+        if judge is not None:
+            return judge
     return None
 
 
