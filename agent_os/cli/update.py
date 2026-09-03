@@ -11,12 +11,16 @@ Supports:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import subprocess
 import sys
+from importlib.metadata import Distribution
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 from rich.console import Console
 
@@ -45,6 +49,47 @@ def is_docker_environment() -> bool:
     if os.getenv("CONTAINER") == "docker":
         return True
     return False
+
+
+PACKAGE_NAME = "agent-os-langgraph"
+REPO_URL = "https://github.com/simon-aibc/agent-os-langgraph"
+
+
+def resolve_source_checkout() -> Path | None:
+    """Return the checkout root when this package is running from source.
+
+    Two signals, in order of authority:
+
+    1. PEP 610 ``direct_url.json``, which pip writes for ``pip install -e .``
+       and for local-path installs, and which points at a directory on this
+       machine.
+    2. A git checkout containing this package: metadata resolution can land on
+       a stale ``*.egg-info`` (which carries no ``direct_url.json``) whenever the
+       repository root precedes site-packages on ``sys.path``, so fall back to
+       the location of the imported package itself.
+
+    Returns ``None`` for a normal index install, where upgrading via pip is right.
+    """
+    try:
+        dist = Distribution.from_name(PACKAGE_NAME)
+        raw = dist.read_text("direct_url.json")
+        if raw:
+            data = json.loads(raw)
+            url = data.get("url", "")
+            if url.startswith("file://"):
+                path = Path(url2pathname(unquote(urlparse(url).path)))
+                if path.is_dir():
+                    return path
+    except Exception:
+        pass
+
+    try:
+        root = Path(__file__).resolve().parent.parent.parent
+        if (root / ".git").exists() and (root / "pyproject.toml").is_file():
+            return root
+    except Exception:
+        pass
+    return None
 
 
 def run_pre_update_db_backups() -> list[str]:
@@ -130,31 +175,55 @@ def handle_update_command(
             except Exception as e:
                 out.print(f"[red]Failed to execute docker compose pull: {e}[/red]")
     else:
-        out.print("[yellow]Detected pip / local Python runtime.[/yellow]")
-        upgrade_cmd = [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--upgrade",
-            "agent-os-langgraph",
-        ]
-        if yes_flag:
-            out.print(f"Running: {' '.join(upgrade_cmd)}")
-            res = subprocess.run(upgrade_cmd, check=False)
-            if res.returncode != 0:
-                out.print(
-                    f"[bold red]Upgrade failed with exit code {res.returncode}[/bold red]"
-                )
-                return res.returncode
+        checkout = resolve_source_checkout()
+        if checkout is not None:
+            # Upgrading a source checkout through an index would detach it from
+            # the working tree it is installed from, so guide git instead. Never
+            # run this automatically: `git pull` can conflict or discard local work.
+            out.print("[yellow]Detected source checkout (editable install).[/yellow]")
+            out.print(f"Checkout: [bold]{checkout}[/bold]")
+            out.print("To upgrade, pull and reinstall from the checkout:")
+            out.print(f"  [bold]git -C {checkout} pull --ff-only[/bold]")
             out.print(
-                "[bold green]Successfully upgraded agent-os-langgraph![/bold green]"
+                f"  [bold]{sys.executable} -m pip install -e {checkout}[/bold]\n"
             )
+            if yes_flag:
+                out.print(
+                    "[yellow]`--yes` does not auto-upgrade a source checkout: "
+                    "pulling could conflict with local changes, and installing "
+                    "from an index would replace your editable install.[/yellow]"
+                )
         else:
-            out.print("To upgrade, execute:")
-            out.print("  [bold]pip install --upgrade agent-os-langgraph[/bold]")
-            out.print("Or re-run with `--yes`:")
-            out.print("  [bold]agent-os update --yes[/bold]")
+            out.print("[yellow]Detected pip / local Python runtime.[/yellow]")
+            # This package is not published to PyPI, so `pip install --upgrade
+            # agent-os-langgraph` cannot resolve. Install from the Git remote.
+            target = f"{PACKAGE_NAME} @ git+{REPO_URL}"
+            if info.latest_version:
+                target = f"{target}@v{info.latest_version.lstrip('v')}"
+            upgrade_cmd = [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                target,
+            ]
+            if yes_flag:
+                out.print(f"Running: {' '.join(upgrade_cmd)}")
+                res = subprocess.run(upgrade_cmd, check=False)
+                if res.returncode != 0:
+                    out.print(
+                        f"[bold red]Upgrade failed with exit code {res.returncode}[/bold red]"
+                    )
+                    return res.returncode
+                out.print(
+                    "[bold green]Successfully upgraded agent-os-langgraph![/bold green]"
+                )
+            else:
+                out.print("To upgrade, execute:")
+                out.print(f'  [bold]pip install --upgrade "{target}"[/bold]')
+                out.print("Or re-run with `--yes`:")
+                out.print("  [bold]agent-os update --yes[/bold]")
 
     out.print("\n[bold cyan]3. Service Reload[/bold cyan]")
     uid = os.getuid() if hasattr(os, "getuid") else 1000
