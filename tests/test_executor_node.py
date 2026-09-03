@@ -3,7 +3,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agent_os.cli_backends import CliBackendError
-from agent_os.nodes.executor import _attach_self_check, executor_node
+from agent_os.nodes.executor import (
+    _attach_self_check,
+    _get_default_judge_llm,
+    _judge_llm_for_model,
+    executor_node,
+)
 from agent_os.schemas import ArchitectBrief, ExecutionResult, ExecutorReport
 
 
@@ -320,3 +325,35 @@ def test_executor_node_cli_fallback_attaches_self_check(monkeypatch):
         ]
 
     assert completed.self_check["total"] == completed.self_check["met"] == 1
+
+
+def test_judge_llm_for_model_skips_cli_and_empty_backends():
+    """A cli/* or unset binding is not litellm-routable, so no LLM is built."""
+    assert _judge_llm_for_model("cli/codex") is None
+    assert _judge_llm_for_model("cli/claude") is None
+    assert _judge_llm_for_model("") is None
+    assert _judge_llm_for_model("   ") is None
+
+
+def test_judge_llm_for_model_builds_routable_model():
+    """A provider-qualified model yields a real ChatLiteLLM bound to it."""
+    llm = _judge_llm_for_model("ollama/qwen2.5:14b")
+    assert llm is not None
+    assert getattr(llm, "model", None) == "ollama/qwen2.5:14b"
+
+
+def test_default_judge_llm_prefers_routable_router_over_cli_roles(monkeypatch):
+    """Mirrors the live daemon: router is routable, architect/executor are cli."""
+    monkeypatch.setenv("LLM_ROUTER", "ollama/qwen2.5:14b")
+    monkeypatch.setenv("LLM_ARCHITECT", "cli/codex")
+    monkeypatch.setenv("LLM_EXECUTOR", "cli/codex")
+    llm = _get_default_judge_llm()
+    assert getattr(llm, "model", None) == "ollama/qwen2.5:14b"
+
+
+def test_default_judge_llm_none_when_every_role_is_cli_or_unset(monkeypatch):
+    """Regression: all-cli setup must skip the judge, not call litellm and fail."""
+    monkeypatch.setenv("LLM_ROUTER", "")
+    monkeypatch.setenv("LLM_ARCHITECT", "cli/codex")
+    monkeypatch.setenv("LLM_EXECUTOR", "cli/codex")
+    assert _get_default_judge_llm() is None
