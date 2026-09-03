@@ -280,7 +280,8 @@ def test_integration_cli_executor_claude(monkeypatch, tmp_path):
     assert isinstance(report, CodingResult)
     assert report.success is True
     assert report.verify_output
-    assert sentinel.read_text(encoding="utf-8") == "I WAS HERE"
+    # CLI backends may normalise a trailing newline; the content is what matters.
+    assert sentinel.read_text(encoding="utf-8").strip() == "I WAS HERE"
 
 
 @pytest.mark.integration
@@ -310,4 +311,5 @@ def test_integration_cli_executor_codex(monkeypatch, tmp_path):
     assert isinstance(report, CodingResult)
     assert report.success is True
     assert report.verify_output
-    assert sentinel.read_text(encoding="utf-8") == "I WAS HERE"
+    # CLI backends may normalise a trailing newline; the content is what matters.
+    assert sentinel.read_text(encoding="utf-8").strip() == "I WAS HERE"
