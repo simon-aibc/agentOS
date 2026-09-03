@@ -1,17 +1,39 @@
 version: 2
+
+# Routine version-update PRs are disabled via `open-pull-requests-limit: 0`.
+#
+# Dependabot *security* updates are configured separately (repo Settings → Code
+# security) and are NOT constrained by this limit, so vulnerability fixes still
+# open pull requests. Grouping keeps each batch to a single PR.
+#
+# Rationale: every runtime dependency is pinned exactly in pyproject.toml, so
+# routine bumps produced steady PR churn with no observable benefit — while a
+# stale unpinned *transitive* dep (anyio) was what actually broke CI. Raise the
+# limit deliberately if routine bumps become useful again.
+
 updates:
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     labels:
       - dependencies
+    groups:
+      pip-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     labels:
       - dependencies
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
