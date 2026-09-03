@@ -1,12 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- **Public boundary cleanup:** renamed the internal graph state to `AgentState`,
-  removed the bundled public-concierge surface, and added the optional opaque
-  `task_signature` field to `POST /api/runs`. Internal `agent_os.*` imports
-  remain unsupported; use only symbols exported from `agent_os.api`.
-
 All notable changes are recorded here. The project follows semantic versioning
 for public releases.
 
@@ -15,12 +8,24 @@ for public releases.
 ### Added
 
 - **Pluggable Store Discovery**: Added dynamic entry-point discovery for the `agent_os.stores` group via `resolve_store_backend()` and `list_store_backends()` in `agent_os.stores`, allowing third-party persistence adapters (e.g. Postgres) to be loaded as plugins.
+- **Link-Ingest Skill**: Bundled a `link-ingest` skill for safe retrieval of a single URL.
+- **Workspace-Aware Doctor**: `agent-os doctor` resolves backend bindings from the active workspace, and now fails instead of reporting OK when a workspace disables policy checks with `mode = "off"`.
+- **Platform Limitation Documentation**: Added `docs/platform/known-limitations.md`, defining the supported deployment envelope and the claim boundary for the current release, alongside ADR 0004 recording the authority-before-delegation invariant.
+
+### Changed
+
+- **Public boundary cleanup:** renamed the internal graph state to `AgentState`, removed the bundled public-concierge surface, and added the optional opaque `task_signature` field to `POST /api/runs`. Internal `agent_os.*` imports remain unsupported; use only symbols exported from `agent_os.api`.
+- **Dependency Update Policy**: Dependabot now opens pull requests for security advisories only, grouped into a single request per batch. Routine version bumps are disabled because every runtime dependency is pinned exactly in `pyproject.toml`.
 
 ### Fixed
 
 - **Bounded Webhook Worker & Shutdown Drain**: `WebhookEventSink` now routes background delivery through a bounded FIFO queue and fixed worker pool, ensuring `emit()` never blocks the execution path, drops with a warning under queue saturation, and cleanly drains in-flight deliveries during graceful shutdown via `close()`.
 - **Explicit Insecure HTTP Opt-in**: Webhook URLs now reject unencrypted `http://` schemes by default. Insecure HTTP requires explicit opt-in via workspace configuration `[webhooks] allow_insecure_http = true` or `allowed_internal_hosts`.
 - **Workspace Composition Memory Routing**: Eliminated direct environment variable bypasses in `architect.py`, `brief_runtime.py`, and `cli/app.py`, ensuring all memory operations route through `composed_workspace().memory_connector` when a workspace is active.
+- **Unresolvable Self-Update Path**: `agent-os update` advertised `pip install --upgrade agent-os-langgraph`, which cannot resolve because the package is not published to PyPI, and executed it directly under `--yes`. A source checkout now gets `git pull` guidance instead of an index install that would replace its editable install, and other installs target the git remote pinned to the resolved release tag.
+- **Update-Check Resource Leak**: `update_check` now closes the `HTTPError` it catches, and the corresponding API test no longer reaches the network.
+- **Warnings-As-Errors Gate On Fresh Installs**: Pinned `anyio` in the `dev` extra. anyio 4.15.0 deprecated the `anyio.abc.BlockingPortal` alias that Starlette's TestClient still dereferences at import time, which broke test collection under the documented `pytest -W error` gate on any fresh install.
+- **Offline Test Isolation**: The suite now blocks real outbound network connections for every test, and the sandbox test actually installs its Codex CLI stub rather than silently skipping it.
 
 ## [2.4.0] — 2026-08-21
 
