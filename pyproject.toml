@@ -60,7 +60,7 @@ agent_os = ["py.typed"]
 [project.optional-dependencies]
 dev = [
     "pytest==9.1.1",
-    "ruff==0.16.1",
+    "ruff==0.16.4",
     "httpx",
 ]
 serve = [
