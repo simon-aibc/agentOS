@@ -5,10 +5,12 @@ from unittest.mock import MagicMock, patch
 
 from rich.console import Console
 
+from agent_os.cli import update as update_module
 from agent_os.cli.app import build_parser
 from agent_os.cli.update import (
     handle_update_command,
     is_docker_environment,
+    resolve_source_checkout,
     run_pre_update_db_backups,
 )
 from agent_os.permission_store import PERMISSION_DB_ENV
@@ -68,6 +70,7 @@ def test_handle_update_pip_guidance():
     with (
         patch("agent_os.cli.update.check_for_update", return_value=mock_info),
         patch("agent_os.cli.update.is_docker_environment", return_value=False),
+        patch("agent_os.cli.update.resolve_source_checkout", return_value=None),
         patch(
             "agent_os.cli.update.run_pre_update_db_backups", return_value=["test.db"]
         ),
@@ -75,7 +78,10 @@ def test_handle_update_pip_guidance():
         code = handle_update_command(args, console=console)
         assert code == 0
         text = console.export_text()
-        assert "pip install --upgrade agent-os-langgraph" in text
+        # The package is not published to PyPI, so the bare index name would not
+        # resolve; the guidance must point at the git remote instead.
+        assert "git+https://github.com/simon-aibc/agent-os-langgraph" in text
+        assert "pip install --upgrade agent-os-langgraph\n" not in text
         assert "Verified/backed up database: test.db" in text
 
 
@@ -94,6 +100,7 @@ def test_handle_update_pip_execution_with_yes_flag():
     with (
         patch("agent_os.cli.update.check_for_update", return_value=mock_info),
         patch("agent_os.cli.update.is_docker_environment", return_value=False),
+        patch("agent_os.cli.update.resolve_source_checkout", return_value=None),
         patch("agent_os.cli.update.run_pre_update_db_backups", return_value=[]),
         patch("subprocess.run") as mock_run,
     ):
@@ -101,6 +108,7 @@ def test_handle_update_pip_execution_with_yes_flag():
         code = handle_update_command(args, console=console)
         assert code == 0
         mock_run.assert_called_once()
+        assert "git+" in " ".join(mock_run.call_args[0][0])
         text = console.export_text()
         assert "Successfully upgraded agent-os-langgraph!" in text
 
@@ -173,3 +181,71 @@ def test_run_pre_update_db_backups_creates_real_backup_files(tmp_path, monkeypat
     backed_up = run_pre_update_db_backups()
     assert str(test_db) in backed_up
     assert (tmp_path / "permissions.db.bak-2").exists()
+
+
+def test_resolve_source_checkout_detects_this_repository():
+    """The tests run from a git checkout, so detection must succeed here."""
+    root = resolve_source_checkout()
+    assert root is not None
+    assert (root / "pyproject.toml").is_file()
+    assert (root / ".git").exists()
+
+
+def test_resolve_source_checkout_returns_none_outside_a_checkout(monkeypatch, tmp_path):
+    fake_pkg = tmp_path / "site-packages" / "agent_os" / "cli"
+    fake_pkg.mkdir(parents=True)
+    monkeypatch.setattr(update_module, "__file__", str(fake_pkg / "update.py"))
+    with patch(
+        "agent_os.cli.update.Distribution.from_name", side_effect=Exception("no dist")
+    ):
+        assert resolve_source_checkout() is None
+
+
+def test_handle_update_source_checkout_guides_git_not_pip(tmp_path):
+    """Regression: a source checkout must never be sent through an index upgrade."""
+    console = Console(record=True)
+    args = argparse.Namespace(
+        check=False, force=False, yes=False, pull=False, reload=False
+    )
+    mock_info = UpdateInfo(
+        current_version="2.4.0", latest_version="2.5.0", update_available=True
+    )
+
+    with (
+        patch("agent_os.cli.update.check_for_update", return_value=mock_info),
+        patch("agent_os.cli.update.is_docker_environment", return_value=False),
+        patch("agent_os.cli.update.resolve_source_checkout", return_value=tmp_path),
+        patch("agent_os.cli.update.run_pre_update_db_backups", return_value=[]),
+    ):
+        code = handle_update_command(args, console=console)
+
+    assert code == 0
+    text = console.export_text()
+    assert "source checkout" in text.lower()
+    assert "git" in text and "pull" in text
+    # Must not advertise the unpublished index package.
+    assert "pip install --upgrade agent-os-langgraph\n" not in text
+
+
+def test_handle_update_source_checkout_yes_flag_does_not_run_pip(tmp_path):
+    """Regression: `--yes` must not clobber an editable install."""
+    console = Console(record=True)
+    args = argparse.Namespace(
+        check=False, force=False, yes=True, pull=False, reload=False
+    )
+    mock_info = UpdateInfo(
+        current_version="2.4.0", latest_version="2.5.0", update_available=True
+    )
+
+    with (
+        patch("agent_os.cli.update.check_for_update", return_value=mock_info),
+        patch("agent_os.cli.update.is_docker_environment", return_value=False),
+        patch("agent_os.cli.update.resolve_source_checkout", return_value=tmp_path),
+        patch("agent_os.cli.update.run_pre_update_db_backups", return_value=[]),
+        patch("subprocess.run") as mock_run,
+    ):
+        code = handle_update_command(args, console=console)
+
+    assert code == 0
+    mock_run.assert_not_called()
+    assert "does not auto-upgrade" in console.export_text()
