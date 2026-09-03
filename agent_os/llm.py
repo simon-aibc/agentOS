@@ -12,6 +12,14 @@ LLM_RETRY_BACKOFF_SECONDS = (2, 4, 8)
 
 
 def _is_retryable_llm_error(error: Exception) -> bool:
+    # CLI executors can have already modified the sandbox before their process
+    # timeout is reported. Retrying them automatically risks duplicate or
+    # conflicting side effects; an operator must inspect and resume explicitly.
+    from agent_os.cli_backends import CliBackendTimeout
+
+    if isinstance(error, CliBackendTimeout):
+        return False
+
     message = str(error).casefold()
     retryable_markers = (
         "429",
@@ -79,7 +87,9 @@ def get_architect_llm(model_name: str | None = None) -> BaseChatModel:
     """
     resolved_model = model_name or os.getenv("LLM_ARCHITECT")
     if not resolved_model:
-        raise ValueError("No architect model configured. Pass model_name or set LLM_ARCHITECT.")
+        raise ValueError(
+            "No architect model configured. Pass model_name or set LLM_ARCHITECT."
+        )
 
     return ChatLiteLLM(model=resolved_model)
 
@@ -92,7 +102,9 @@ def get_executor_llm(model_name: str | None = None) -> BaseChatModel:
     """
     resolved_model = model_name or os.getenv("LLM_EXECUTOR")
     if not resolved_model:
-        raise ValueError("No executor model configured. Pass model_name or set LLM_EXECUTOR.")
+        raise ValueError(
+            "No executor model configured. Pass model_name or set LLM_EXECUTOR."
+        )
 
     return ChatLiteLLM(model=resolved_model)
 
@@ -105,6 +117,8 @@ def get_router_llm(model_name: str | None = None) -> BaseChatModel:
     """
     resolved_model = model_name or os.getenv("LLM_ROUTER")
     if not resolved_model:
-        raise ValueError("No router model configured. Pass model_name or set LLM_ROUTER.")
+        raise ValueError(
+            "No router model configured. Pass model_name or set LLM_ROUTER."
+        )
 
     return ChatLiteLLM(model=resolved_model)

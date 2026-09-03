@@ -1,0 +1,26 @@
+skills = []
+connectors = ["memory"]
+
+[workspace]
+name = "knowledge-assistant"
+department = "Research"
+organization = "ExampleCo"
+
+[backends]
+architect = "claude-code"
+executor = "claude-code"
+
+[memory]
+type = "markdown"
+path = "."
+
+[context]
+sources = ["SYSTEM.md", "CONTEXT.md"]
+max_chars = 4000
+max_age_days = 3650
+
+[policy]
+mode = "local"
+
+[limits]
+recursion_limit = 7

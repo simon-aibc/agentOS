@@ -49,14 +49,15 @@ def _validate_sandbox_root(sandbox_path: str) -> Path:
     """Require the filesystem MCP root to be strictly below the user home."""
     if not sandbox_path:
         raise ValueError(
-            "AGENT_OS_SANDBOX must be configured when "
-            "MCP_FILESYSTEM_ENABLED is true"
+            "AGENT_OS_SANDBOX must be configured when MCP_FILESYSTEM_ENABLED is true"
         )
     resolved = Path(sandbox_path).resolve()
     home = Path.home().resolve()
 
     if resolved == home:
-        raise ValueError("Filesystem MCP root cannot be the user home directory itself.")
+        raise ValueError(
+            "Filesystem MCP root cannot be the user home directory itself."
+        )
 
     try:
         resolved.relative_to(home)

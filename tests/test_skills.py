@@ -1,5 +1,6 @@
 import pytest
 
+from agent_os.default_registry import parse_tier1_request
 from agent_os.skills import RegisteredSkill, SkillRegistry
 
 
@@ -15,8 +16,12 @@ def test_registered_skill_matches():
 
 def test_registry_deterministic_match():
     registry = SkillRegistry()
-    registry.register(RegisteredSkill(name="read", aliases=["cat", "view"], handler=lambda: None))
-    registry.register(RegisteredSkill(name="write", aliases=["edit"], handler=lambda: None))
+    registry.register(
+        RegisteredSkill(name="read", aliases=["cat", "view"], handler=lambda: None)
+    )
+    registry.register(
+        RegisteredSkill(name="write", aliases=["edit"], handler=lambda: None)
+    )
 
     # Exact intent matching
     assert registry.deterministic_match("read file.txt").name == "read"
@@ -39,7 +44,9 @@ def test_registry_duplicate_rejection():
 
     # duplicate canonical name
     with pytest.raises(ValueError, match="already registered"):
-        registry.register(RegisteredSkill(name="read", aliases=[], handler=lambda: None))
+        registry.register(
+            RegisteredSkill(name="read", aliases=[], handler=lambda: None)
+        )
 
     # duplicate canonical name as alias
     with pytest.raises(ValueError, match="already used as an alias"):
@@ -47,11 +54,15 @@ def test_registry_duplicate_rejection():
 
     # alias duplicates canonical name
     with pytest.raises(ValueError, match="already used by"):
-        registry.register(RegisteredSkill(name="view", aliases=["read"], handler=lambda: None))
+        registry.register(
+            RegisteredSkill(name="view", aliases=["read"], handler=lambda: None)
+        )
 
     # alias duplicates alias
     with pytest.raises(ValueError, match="already used by"):
-        registry.register(RegisteredSkill(name="view", aliases=["cat"], handler=lambda: None))
+        registry.register(
+            RegisteredSkill(name="view", aliases=["cat"], handler=lambda: None)
+        )
 
 
 def test_registry_runtime_extensibility():
@@ -83,3 +94,21 @@ def test_skill_rejects_duplicate_or_empty_aliases():
         RegisteredSkill(name="read", aliases=["cat", "CAT"], handler=lambda: None)
     with pytest.raises(ValueError, match="must not be empty"):
         RegisteredSkill(name="read", aliases=["  "], handler=lambda: None)
+
+
+def test_tier1_request_routes_single_argument_workspace_skill_without_llm():
+    registry = SkillRegistry()
+    registry.register(
+        RegisteredSkill(
+            name="hermes_chat",
+            aliases=["hermes-chat"],
+            handler=lambda task: task,
+        )
+    )
+
+    decision = parse_tier1_request('hermes-chat {"message":"hello"}', registry)
+
+    assert decision is not None
+    assert decision.tool == "hermes_chat"
+    assert decision.confidence == 1.0
+    assert decision.arguments == {"task": '{"message":"hello"}'}

@@ -11,9 +11,11 @@ from agent_os.cli_backends import (
     CliBackendError,
     CliBackendTimeout,
     build_safe_subprocess_env,
+    cli_timeout_seconds,
     ensure_binary,
     parse_claude_stream_json,
     parse_codex_output_file,
+    prepare_codex_home,
     run_cli_command,
     write_schema_file,
 )
@@ -44,7 +46,9 @@ def test_sandbox_cwd_enforcement(monkeypatch, tmp_path):
         patch("shutil.which", return_value="/fake/path/fake_bin"),
         patch("subprocess.run") as mock_run,
     ):
-        mock_run.return_value = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
         run_cli_command("fake_bin", ["arg"])
 
     mock_run.assert_called_once()
@@ -70,7 +74,10 @@ def test_sandbox_path_escape_rejected(monkeypatch, tmp_path):
         (["exec", "--sandbox", "danger-full-access", "task"], "danger-full-access"),
         (["-p", "task", "--permission-mode=bypassPermissions"], "bypassPermissions"),
         (["-p", "task", "--add-dir=/var/tmp"], "expand sandbox access"),
-        (["exec", "--dangerously-bypass-approvals-and-sandbox", "task"], "expand sandbox access"),
+        (
+            ["exec", "--dangerously-bypass-approvals-and-sandbox", "task"],
+            "expand sandbox access",
+        ),
     ],
 )
 def test_cli_security_bypass_arguments_rejected(args, expected_error):
@@ -99,6 +106,65 @@ def test_env_strips_credentials(monkeypatch):
 
     assert "NORMAL_ENV" in safe_env
     assert safe_env["NORMAL_ENV"] == "ok"
+
+
+def test_prepare_codex_home_isolates_cache_and_links_existing_auth(tmp_path):
+    user_home = tmp_path / "user"
+    source_home = user_home / ".codex"
+    source_home.mkdir(parents=True)
+    source_auth = source_home / "auth.json"
+    source_auth.write_text('{"auth": "test"}', encoding="utf-8")
+    runtime_home = tmp_path / "agent-os-codex"
+
+    prepared = prepare_codex_home({
+        "HOME": str(user_home),
+        "AGENT_OS_CODEX_HOME": str(runtime_home),
+    })
+
+    assert prepared["CODEX_HOME"] == str(runtime_home)
+    assert (runtime_home / "auth.json").is_symlink()
+    assert (runtime_home / "auth.json").resolve() == source_auth
+
+
+def test_prepare_codex_home_respects_explicit_shared_home(tmp_path):
+    user_home = tmp_path / "user"
+    source_home = user_home / ".codex"
+    source_home.mkdir(parents=True)
+    env = {"HOME": str(user_home), "AGENT_OS_CODEX_HOME": str(source_home)}
+
+    assert prepare_codex_home(env) == env
+
+
+def test_codex_command_receives_isolated_codex_home(monkeypatch, tmp_path):
+    sandbox = tmp_path / "sandbox"
+    user_home = tmp_path / "user"
+    source_home = user_home / ".codex"
+    source_home.mkdir(parents=True)
+    (source_home / "auth.json").write_text('{"auth": "test"}', encoding="utf-8")
+    runtime_home = tmp_path / "agent-os-codex"
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(sandbox))
+    monkeypatch.setenv("HOME", str(user_home))
+    monkeypatch.setenv("AGENT_OS_CODEX_HOME", str(runtime_home))
+
+    with (
+        patch("shutil.which", return_value="/fake/path/codex"),
+        patch("subprocess.run") as mock_run,
+    ):
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="", stderr=""
+        )
+        run_cli_command("codex", ["exec", "task"])
+
+    assert mock_run.call_args.kwargs["env"]["CODEX_HOME"] == str(runtime_home)
+
+
+def test_cli_timeout_uses_a_bounded_agent_os_configuration(monkeypatch):
+    monkeypatch.setenv("AGENT_OS_CLI_TIMEOUT_SECONDS", "900")
+    assert cli_timeout_seconds() == 900
+    monkeypatch.setenv("AGENT_OS_CLI_TIMEOUT_SECONDS", "invalid")
+    assert cli_timeout_seconds() == 300
+    assert cli_timeout_seconds(1) == 1
+    assert cli_timeout_seconds(9999) == 9999
 
 
 def test_schema_file_cleanup_success():
@@ -234,7 +300,9 @@ def test_codex_output_parser_invalid_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("TEST_API_KEY", "secret-value")
     invalid_file = tmp_path / "invalid.json"
     invalid_file.write_text("not json api_key=secret-value", encoding="utf-8")
-    with pytest.raises(ValueError, match="Failed to parse Codex JSON output") as exc_info:
+    with pytest.raises(
+        ValueError, match="Failed to parse Codex JSON output"
+    ) as exc_info:
         parse_codex_output_file(invalid_file)
     assert "secret-value" not in str(exc_info.value)
 
@@ -254,45 +322,41 @@ def test_claude_stream_json_parser_success_direct():
 
 
 def test_claude_stream_json_parser_success_assistant():
-    stdout = json.dumps({
-        "type": "assistant",
-        "message": {
-            "content": [
-                {"type": "text", "text": '{"structured": "data"}'}
-            ]
+    stdout = json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "text", "text": '{"structured": "data"}'}]
+            },
         }
-    })
+    )
     data = parse_claude_stream_json(stdout)
     assert data == {"structured": "data"}
 
 
 def test_claude_stream_json_parser_success_markdown_fence():
-    stdout = json.dumps({
-        "type": "assistant",
-        "message": {
-            "content": [
-                {"type": "text", "text": '```json\n{"structured": "data"}\n```'}
-            ]
-        },
-    })
+    stdout = json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": '```json\n{"structured": "data"}\n```'}
+                ]
+            },
+        }
+    )
     data = parse_claude_stream_json(stdout)
     assert data == {"structured": "data"}
 
 
 def test_claude_stream_json_parser_success_result():
-    stdout = json.dumps({
-        "type": "result",
-        "result": '{"structured": "data"}'
-    })
+    stdout = json.dumps({"type": "result", "result": '{"structured": "data"}'})
     data = parse_claude_stream_json(stdout)
     assert data == {"structured": "data"}
 
 
 def test_claude_stream_json_parser_success_structured_output():
-    stdout = json.dumps({
-        "type": "result",
-        "structured_output": {"schema": "valid"}
-    })
+    stdout = json.dumps({"type": "result", "structured_output": {"schema": "valid"}})
     data = parse_claude_stream_json(stdout)
     assert data == {"schema": "valid"}
 

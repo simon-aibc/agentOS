@@ -7,6 +7,7 @@ from langchain_core.messages.modifier import RemoveMessage
 def _approximate_tokens(text: str) -> int:
     return len(text) // 4
 
+
 def _count_message_tokens(messages: Sequence[AnyMessage]) -> int:
     total = 0
     for msg in messages:
@@ -20,17 +21,18 @@ def _count_message_tokens(messages: Sequence[AnyMessage]) -> int:
                     total += _approximate_tokens(block["text"])
     return total
 
+
 def summarize_and_trim(
     messages: Sequence[AnyMessage],
     existing_summary: str | None,
     *,
     threshold_tokens: int,
     keep_recent_n: int,
-    summarizer: Callable[[str], str]
+    summarizer: Callable[[str], str],
 ) -> tuple[str | None, list[AnyMessage], list[RemoveMessage]]:
     """
     Checks if messages exceed the threshold. If so, summarizes the old messages and trims them.
-    
+
     Returns:
         (new_summary, kept_messages, remove_messages)
     """
@@ -50,7 +52,7 @@ def summarize_and_trim(
     summary_prompt = "Summarize the following conversation history.\n"
     if existing_summary:
         summary_prompt += f"Existing Summary:\n{existing_summary}\n\n"
-        
+
     summary_prompt += "New conversation turns to summarize:\n"
     for m in old_messages:
         content = m.content if isinstance(m.content, str) else str(m.content)

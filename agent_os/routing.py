@@ -9,7 +9,7 @@ from agent_os.schemas import (
     ExecutorReport,
     PlanArtifact,
 )
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 Route = Literal["architect", "executor", "tool", "end"]
 RouterMode = Literal["cascade", "direct-escalation"]
@@ -47,16 +47,21 @@ def build_runtime_config(thread_id: str) -> dict[str, object]:
     }
 
 
-def route_from_state(state: SimonState) -> Route:
+def route_from_state(state: AgentState) -> Route:
     executor_output = state.get("executor_output")
     human_feedback = state.get("human_feedback")
 
     # a. successful ExecutorReport or generic ExecutionResult -> end
     if isinstance(executor_output, ExecutionResult):
-        if getattr(executor_output, "status", None) == "completed" or getattr(executor_output, "success", None) is True:
+        if (
+            getattr(executor_output, "status", None) == "completed"
+            or getattr(executor_output, "success", None) is True
+        ):
             return "end"
     # Legacy check for ExecutorReport before it becomes a subclass
-    elif isinstance(executor_output, ExecutorReport) and executor_output.success is True:
+    elif (
+        isinstance(executor_output, ExecutorReport) and executor_output.success is True
+    ):
         return "end"
 
     # b. human_feedback == "approved" -> executor

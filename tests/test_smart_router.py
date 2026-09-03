@@ -7,18 +7,14 @@ from agent_os.skills import RegisteredSkill, SkillRegistry
 
 def test_classify_tool_request_high_confidence():
     registry = SkillRegistry()
-    registry.register(
-        RegisteredSkill(name="my_tool", aliases=[], handler=lambda x: x)
-    )
+    registry.register(RegisteredSkill(name="my_tool", aliases=[], handler=lambda x: x))
 
     mock_llm = MagicMock()
     mock_structured = MagicMock()
     mock_llm.with_structured_output.return_value = mock_structured
 
     mock_structured.invoke.return_value = RouterDecision(
-        tool="my_tool",
-        confidence=0.9,
-        arguments={"x": 1}
+        tool="my_tool", confidence=0.9, arguments={"x": 1}
     )
 
     decision = classify_tool_request("do something", registry, llm=mock_llm)
@@ -49,9 +45,7 @@ def test_classify_tool_request_unknown_tool_rejection():
 
     # LLM invents a tool
     mock_structured.invoke.return_value = RouterDecision(
-        tool="invented_tool",
-        confidence=0.9,
-        arguments={}
+        tool="invented_tool", confidence=0.9, arguments={}
     )
 
     decision = classify_tool_request("do something", registry, llm=mock_llm)

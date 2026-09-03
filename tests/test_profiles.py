@@ -52,7 +52,7 @@ def test_load_secret_rejection(tmp_path):
 
 def test_load_valid_toml(tmp_path):
     p = tmp_path / "valid.toml"
-    p.write_text('''
+    p.write_text("""
     default = "cli-base"
     [profile.cli-base]
     router = "ollama/llama3.1"
@@ -61,7 +61,7 @@ def test_load_valid_toml(tmp_path):
     [profile.cli-write]
     extends = "cli-base"
     sandbox = "./worktree-sandbox"
-    ''')
+    """)
     pf = load_profiles(p)
     assert pf.default == "cli-base"
     assert "cli-base" in pf.profiles
@@ -71,10 +71,10 @@ def test_load_valid_toml(tmp_path):
 
 def test_unknown_keys(tmp_path):
     p = tmp_path / "unknown.toml"
-    p.write_text('unknown = 123')
+    p.write_text("unknown = 123")
     with pytest.raises(ProfileLoadError, match="Invalid profile configuration"):
         load_profiles(p)
-        
+
     p2 = tmp_path / "unknown2.toml"
     p2.write_text('[profile.a]\nfoo = "bar"')
     with pytest.raises(ProfileLoadError, match="Invalid profile configuration"):
@@ -87,7 +87,7 @@ def test_xdg_loading(monkeypatch, tmp_path):
     p = xdg / "agent-os" / "profiles.toml"
     p.write_text('default = "from-xdg"')
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg))
-    
+
     pf = load_profiles()
     assert pf.default == "from-xdg"
 
@@ -99,11 +99,11 @@ def test_home_config_fallback(monkeypatch, tmp_path):
     p.write_text('default = "from-home"')
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-    
+
     # Python's Path.home() might not pick up monkeypatched HOME on all OSes reliably without expanding it,
     # but let's mock Path.home() just in case.
     monkeypatch.setattr(Path, "home", lambda: home)
-    
+
     pf = load_profiles()
     assert pf.default == "from-home"
 
@@ -142,50 +142,54 @@ def test_resolve_cycle():
 
 
 def test_resolve_deep_inheritance():
-    pf = ProfileFile(profiles={
-        "a": {"name": "a", "extends": "b"},
-        "b": {"name": "b", "extends": "c"},
-        "c": {"name": "c"}
-    })
+    pf = ProfileFile(
+        profiles={
+            "a": {"name": "a", "extends": "b"},
+            "b": {"name": "b", "extends": "c"},
+            "c": {"name": "c"},
+        }
+    )
     reg = BackendRegistry()
-    with pytest.raises(ProfileLoadError, match="Deep inheritance is not supported: a -> b -> c"):
+    with pytest.raises(
+        ProfileLoadError, match="Deep inheritance is not supported: a -> b -> c"
+    ):
         resolve_profile(pf, "a", reg, Path("/tmp"))
 
 
 def test_resolve_two_profile_cycle():
-    pf = ProfileFile(profiles={
-        "a": {"name": "a", "extends": "b"},
-        "b": {"name": "b", "extends": "a"}
-    })
+    pf = ProfileFile(
+        profiles={
+            "a": {"name": "a", "extends": "b"},
+            "b": {"name": "b", "extends": "a"},
+        }
+    )
     reg = BackendRegistry()
-    with pytest.raises(ProfileLoadError, match="Inheritance cycle detected: a -> b -> a"):
+    with pytest.raises(
+        ProfileLoadError, match="Inheritance cycle detected: a -> b -> a"
+    ):
         resolve_profile(pf, "a", reg, Path("/tmp"))
 
 
 def test_resolve_unsupported_role():
-    pf = ProfileFile(profiles={
-        "a": {"name": "a", "architect": "cli/claude"}
-    })
+    pf = ProfileFile(profiles={"a": {"name": "a", "architect": "cli/claude"}})
     reg = BackendRegistry()
-    reg.register(MockAdapter("claude", "claude", frozenset({"executor"}))) # Only executor
-    
+    reg.register(
+        MockAdapter("claude", "claude", frozenset({"executor"}))
+    )  # Only executor
+
     with pytest.raises(ProfileLoadError, match="does not support role 'architect'"):
         resolve_profile(pf, "a", reg, Path("/tmp"))
 
 
 def test_resolve_unknown_backend():
-    pf = ProfileFile(profiles={
-        "a": {"name": "a", "architect": "cli/missing"}
-    })
+    pf = ProfileFile(profiles={"a": {"name": "a", "architect": "cli/missing"}})
     reg = BackendRegistry()
     with pytest.raises(ProfileLoadError, match="Unknown backend adapter 'missing'"):
         resolve_profile(pf, "a", reg, Path("/tmp"))
 
 
 def test_resolve_router_cli_rejection():
-    pf = ProfileFile(profiles={
-        "a": {"name": "a", "router": "cli/claude"}
-    })
+    pf = ProfileFile(profiles={"a": {"name": "a", "router": "cli/claude"}})
     reg = BackendRegistry()
     with pytest.raises(ProfileLoadError, match="Router cannot be a CLI backend"):
         resolve_profile(pf, "a", reg, Path("/tmp"))
@@ -193,36 +197,38 @@ def test_resolve_router_cli_rejection():
 
 def test_resolve_success(tmp_path):
     sandbox_base = tmp_path / "base"
-    pf = ProfileFile(profiles={
-        "parent": {
-            "name": "parent",
-            "router": "ollama/qwen",
-            "architect": "cli/claude",
-            "description": "parent desc"
-        },
-        "child": {
-            "name": "child",
-            "extends": "parent",
-            "sandbox": "~/custom-sandbox",
-            "executor": "cli/codex",
-            "description": "child desc"
-        },
-        "minimal": {
-            "name": "minimal"
+    pf = ProfileFile(
+        profiles={
+            "parent": {
+                "name": "parent",
+                "router": "ollama/qwen",
+                "architect": "cli/claude",
+                "description": "parent desc",
+            },
+            "child": {
+                "name": "child",
+                "extends": "parent",
+                "sandbox": "~/custom-sandbox",
+                "executor": "cli/codex",
+                "description": "child desc",
+            },
+            "minimal": {"name": "minimal"},
         }
-    })
-    
+    )
+
     reg = BackendRegistry()
     reg.register(MockAdapter("claude", "claude", frozenset({"architect"})))
     reg.register(MockAdapter("codex", "codex", frozenset({"executor"})))
-    
+
     resolved_child = resolve_profile(pf, "child", reg, sandbox_base)
     assert resolved_child.name == "child"
     assert resolved_child.router == "ollama/qwen"
     assert resolved_child.architect == "cli/claude"
     assert resolved_child.executor == "cli/codex"
-    assert resolved_child.sandbox == str(Path("~/custom-sandbox").expanduser().resolve())
-    
+    assert resolved_child.sandbox == str(
+        Path("~/custom-sandbox").expanduser().resolve()
+    )
+
     resolved_minimal = resolve_profile(pf, "minimal", reg, sandbox_base)
     assert resolved_minimal.name == "minimal"
     assert resolved_minimal.sandbox == str(sandbox_base)

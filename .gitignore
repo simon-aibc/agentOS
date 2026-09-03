@@ -26,6 +26,7 @@ dist/
 .tox/
 .nox/
 .venv/
+.venv*/
 venv/
 env/
 .python-version
@@ -41,10 +42,13 @@ coverage.json
 checkpoints.db
 *.db
 *.db-*
+*.db.bak*
 *.sqlite
 *.sqlite-*
+*.sqlite.bak*
 *.sqlite3
 *.sqlite3-*
+*.sqlite3.bak*
 
 # IDE
 .vscode/

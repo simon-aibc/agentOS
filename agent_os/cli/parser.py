@@ -67,10 +67,15 @@ def format_event(
             destination = _supervisor_destination(data.get("output"))
             if destination is not None:
                 formatter.print_supervisor_route(destination)
-        elif verbose and isinstance(name, str) and name not in {
-            "LangGraph",
-            "__start__",
-        }:
+        elif (
+            verbose
+            and isinstance(name, str)
+            and name
+            not in {
+                "LangGraph",
+                "__start__",
+            }
+        ):
             formatter.print_info(f"Node '{name}' completed.")
         return
 

@@ -1,0 +1,26 @@
+skills = []
+connectors = ["filesystem", "memory"]
+
+[workspace]
+name = "coding-maintainer"
+department = "Engineering"
+organization = "ExampleCo"
+
+[backends]
+architect = "codex"
+executor = "codex"
+
+[memory]
+type = "markdown"
+path = "."
+
+[context]
+sources = ["SYSTEM.md", "CONTEXT.md"]
+max_chars = 4000
+max_age_days = 3650
+
+[policy]
+mode = "local"
+
+[limits]
+recursion_limit = 7

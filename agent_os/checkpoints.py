@@ -19,11 +19,13 @@ from agent_os.schemas import (
     GrepResult,
     MemoryWriteProposal,
     PlanArtifact,
+    PolicyDecision,
     ReadFileResult,
     RouterDecision,
     ToolExecutionResult,
 )
 from agent_os.state import BackendBinding
+from agent_os.strategies import StrategyHint
 
 CHECKPOINT_DB_ENV = "AGENT_OS_CHECKPOINTS_DB"
 DEFAULT_CHECKPOINT_DB = "./checkpoints.db"
@@ -44,11 +46,13 @@ CHECKPOINT_MODEL_TYPES = (
     CodingResult,
     ActionProposal,
     MemoryWriteProposal,
+    PolicyDecision,
+    StrategyHint,
 )
 
 
 def get_checkpoint_serializer() -> JsonPlusSerializer:
-    """Allow only the application models persisted in SimonState."""
+    """Allow only the application models persisted in AgentState."""
     return JsonPlusSerializer(allowed_msgpack_modules=CHECKPOINT_MODEL_TYPES)
 
 

@@ -13,6 +13,7 @@ from agent_os.schemas import (
     PlanArtifact,
     ToolExecutionResult,
 )
+from agent_os.strategies import StrategyHint
 
 PlanField = str | PlanArtifact | ArchitectBrief | None
 ResultField = str | ExecutionResult | ExecutorReport | None
@@ -38,16 +39,20 @@ class BackendBinding(BaseModel):
         return str(Path(text).expanduser().resolve())
 
 
-class SimonState(TypedDict):
+class AgentState(TypedDict):
     """
-    State for the SimonOS agent graph.
+    State for the Agent OS graph.
     """
+
     messages: Annotated[list[AnyMessage], add_messages]
     task: str
+    run_id: NotRequired[str | None]
     plan: PlanField
     executor_output: ResultField
     human_feedback: str | None
     hot_context: str | None
+    observation_context: NotRequired[str | None]
+    strategy_hint: NotRequired[StrategyHint | None]
     conversation_summary: NotRequired[str | None]
 
     # R7a fields

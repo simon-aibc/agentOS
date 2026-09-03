@@ -5,10 +5,26 @@ from pathlib import Path
 from agent_os.backends import get_default_backend_registry
 from agent_os.sandbox import get_sandbox_root
 from agent_os.schemas import PlanArtifact
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 MAX_INVENTORY_FILES = 1000
 _MAX_INVENTORY_DIRECTORIES = 1000
+_IGNORED_INVENTORY_DIRECTORIES = frozenset(
+    {
+        ".cache",
+        ".codegraph",
+        ".git",
+        ".graphify",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv",
+        "__pycache__",
+        "build",
+        "dist",
+        "node_modules",
+        "venv",
+    }
+)
 
 
 def _build_sandbox_inventory() -> list[str]:
@@ -35,6 +51,8 @@ def _build_sandbox_inventory() -> list[str]:
         root_path = Path(root)
         safe_dirs: list[str] = []
         for directory in sorted(dirs):
+            if directory in _IGNORED_INVENTORY_DIRECTORIES:
+                continue
             directory_path = root_path / directory
             try:
                 if directory_path.is_symlink():
@@ -61,7 +79,7 @@ def _build_sandbox_inventory() -> list[str]:
     return sorted(valid_files)
 
 
-def _build_architect_prompt(state: SimonState) -> str:
+def _build_architect_prompt(state: AgentState) -> str:
     """
     Build the prompt text for the CLI architect.
     Includes the original task, sandbox inventory, and any rejection feedback.
@@ -69,6 +87,21 @@ def _build_architect_prompt(state: SimonState) -> str:
     inventory = _build_sandbox_inventory()
 
     prompt = f"Task:\n{state['task']}\n\n"
+
+    strategy_hint = state.get("strategy_hint")
+    if strategy_hint:
+        strategy_data = (
+            strategy_hint.model_dump()
+            if hasattr(strategy_hint, "model_dump")
+            else strategy_hint
+        )
+        if not isinstance(strategy_data, dict):
+            strategy_data = {}
+        prompt += (
+            "Planning strategy:\n"
+            f"Selected strategy: {strategy_data.get('strategy_id', 'default-v1')}\n"
+            f"Directive: {strategy_data.get('directive', '')}\n\n"
+        )
 
     if inventory:
         prompt += "Available files in sandbox:\n"
@@ -89,7 +122,7 @@ def _build_architect_prompt(state: SimonState) -> str:
 
 def build_cli_architect_invoker(
     backend: str,
-) -> Callable[[SimonState], PlanArtifact]:
+) -> Callable[[AgentState], PlanArtifact]:
     """
     Returns a callable that executes the CLI architect node logic for a specific backend.
     Supported backends: 'claude-code', 'codex'.
@@ -98,5 +131,7 @@ def build_cli_architect_invoker(
     try:
         adapter = get_default_backend_registry().resolve("architect", backend)
     except ValueError as exc:
-        raise ValueError(f"Unsupported CLI architect backend: {backend}. {exc}") from exc
+        raise ValueError(
+            f"Unsupported CLI architect backend: {backend}. {exc}"
+        ) from exc
     return adapter.build_invoker("architect")

@@ -41,7 +41,9 @@ def grep(query: str, path: str = ".") -> GrepResult:
                     if query in line:
                         # try to get relative path from root, or just target_dir
                         rel_path = str(fpath.relative_to(root))
-                        matches.append(GrepMatch(path=rel_path, line=i, text=line.rstrip("\n")))
+                        matches.append(
+                            GrepMatch(path=rel_path, line=i, text=line.rstrip("\n"))
+                        )
         except (UnicodeDecodeError, IsADirectoryError, PermissionError):
             pass
 

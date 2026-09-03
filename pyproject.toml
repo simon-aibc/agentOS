@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-os-langgraph"
-version = "1.5.0"
+version = "2.4.0"
 description = "Deterministic multi-agent orchestration built with LangGraph."
 readme = "README.md"
 authors = [{ name = "Simon Tran" }]
@@ -27,17 +27,18 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "langgraph==1.2.10",
-    "langgraph-checkpoint-sqlite==3.1.0",
+    "langgraph-checkpoint-sqlite==3.1.1",
     "langchain==1.3.14",
-    "langchain-core==1.4.9",
+    "langchain-core==1.5.3",
     "pydantic==2.13.4",
     "python-dotenv==1.2.2",
     "typing-extensions==4.16.0",
     "langchain-litellm==0.7.0",
-    "litellm==1.93.0",
+    "litellm==1.95.0",
     "mcp==1.29.0",
-    "langchain-mcp-adapters==0.3.0",
+    "langchain-mcp-adapters==0.3.1",
     "rich==15.0.0",
+    "croniter==6.0.0",
 ]
 
 [project.scripts]
@@ -53,10 +54,13 @@ Issues = "https://github.com/simon-aibc/agent-os-langgraph/issues"
 [tool.setuptools.packages.find]
 include = ["agent_os*"]
 
+[tool.setuptools.package-data]
+agent_os = ["py.typed"]
+
 [project.optional-dependencies]
 dev = [
     "pytest==9.1.1",
-    "ruff==0.16.1",
+    "ruff==0.16.4",
     "httpx",
 ]
 serve = [
@@ -70,6 +74,7 @@ serve = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
 # -p no:threadexception: the async sqlite saver used by the websocket endpoint
 # can raise a benign "Event loop is closed" in its background thread during
 # TestClient teardown, which the threadexception plugin would non-deterministically
@@ -80,6 +85,7 @@ filterwarnings = [
 ]
 markers = [
     "integration: requires explicitly enabled external services or CLI tools",
+    "network: allows real outbound network connections in offline test suite",
 ]
 
 [tool.ruff]

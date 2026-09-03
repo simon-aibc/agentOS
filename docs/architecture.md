@@ -36,9 +36,33 @@ The dispatcher returns `Command(goto=END)` on success, so that path does not
 pass through the supervisor again. Architect, gate, and executor edges are
 explicit; supervisor destinations are conditional.
 
+### Local service boundaries (self-hosted deployment)
+
+When Agent OS runs alongside sibling services on a single host — the reference
+setup used by the maintainer — each surface listens on its own loopback port and
+owns a distinct concern. Applications embedding Agent OS should preserve these
+boundaries so that ownership is clear:
+
+- `127.0.0.1:4680` — Agent OS Python API (this repo): orchestration graph,
+  runs, dispatch, approvals, checkpoint state.
+- `127.0.0.1:4681` — Agent OS Console (separate private repo
+  `agent-os-console`): read-only operator UI over the Agent OS API.
+- `127.0.0.1:4679` — application layer (out of scope for this repo, example:
+  application Node): application routes like todos, calendar, notes owned by the
+  embedding app, not by Agent OS.
+- `127.0.0.1:8642` — Hermes gateway (external): optional OpenAI-compatible
+  `/v1/chat/completions` adapter that lets any OAI-style chat frontend
+  (Open WebUI, LobeChat, AionUi, etc.) connect to a Hermes-orchestrated
+  backend. Agent OS itself does not expose this endpoint; embedding apps that
+  want that surface should run a gateway process alongside.
+
+Agent OS does not claim any of the application-layer routes. Downstream
+integrations misconfigured to POST life-OS routes at Agent OS's port will
+correctly 404 — this is by design.
+
 ## State and boundary models
 
-[`SimonState`](../agent_os/state.py) is a `TypedDict`, which lets LangGraph own
+[`AgentState`](../agent_os/state.py) is a `TypedDict`, which lets LangGraph own
 state-channel behavior without wrapping the entire graph state in a runtime
 model. `messages` uses LangGraph's `add_messages` reducer. Complex values cross
 node boundaries as Pydantic models from
@@ -51,7 +75,7 @@ node boundaries as Pydantic models from
 | `plan` | `str \| ArchitectBrief \| None` | Initial plan text or architect contract |
 | `executor_output` | `str \| ExecutorReport \| None` | Legacy text or structured execution report |
 | `human_feedback` | `str \| None` | `approved` or `rejected: <reason>` |
-| `hot_context` | `str \| None` | Reserved compact context channel |
+| `hot_context` | `str \| None` | Static session-start context (hot.md, AI/Memory, spine files), distinct from conversation_summary |
 | `tool_result` | optional `ToolExecutionResult \| None` | Serialized dispatcher result |
 | `router_escalated` | optional `bool` | Dispatcher-to-supervisor escalation signal |
 
@@ -159,7 +183,7 @@ Agent OS treats each model invocation as a cost boundary:
    it from leaking into graph routing.
 5. **8K message trimming** (`agent_os/messages.py`) bounds context at the
    Architect and Executor invocation boundaries without mutating persistent
-   `SimonState`. Full history remains available for HITL review and replay.
+   `AgentState`. Full history remains available for HITL review and replay.
 6. **Output caps** (`agent_os/output_limits.py`) bound retained UTF-8 data to
    100KB per Bash stream and 50KB per dispatcher result before checkpointing.
    `subprocess.run(capture_output=True)` still buffers before this cap applies.
@@ -168,12 +192,23 @@ Agent OS treats each model invocation as a cost boundary:
 
 ## Connector framework & Memory write-path
 
-Agent OS v1.5 introduces a robust connector framework:
+Agent OS exposes a robust connector framework:
 - **ConnectorRegistry** maps standardized interfaces (`MemoryConnector`, `FilesystemConnector`) to portable implementations.
-- **Write-path:** `WritableMemory` supports gated writes (`evaluate_write_policy`), ensuring agent-planned context writes require human approval (or fall under auto-approve policies like `AI/Logs/`).
+- **Write-path:** `WritableMemory` supports gated writes (`gated_write` / `evaluate_write_policy`), ensuring agent-planned context writes require human approval (or fall under auto-approve policies like `AI/Logs/`).
+Gated writes flow through a shared `PolicyEngine` (`LocalPolicy`, 7-level side-effect taxonomy `none`/`read`/`write`/`network`/`communication`/`payment`/`privileged` -> `allow`/`deny`/`require_approval`) via `apply_policy`. The CLI graph stream and server run executor bind the composed workspace policy to their async execution context, so nested memory writes use the correct workspace/session engine. Memory writes support explicit user-taught rules (`approve once`, `session`, `always_approve`, `always_deny`) in SQLite with WAL protection. Persistent and session rules are intentionally limited to exact `memory_write:write:<connector>:<mode>:<ref>` scopes; no learned rule can make a generic URL, recipient, or filesystem action globally allowed. Learned rules can be inspected and revoked via `agent-os permissions list|revoke`; workspace rules live in that workspace's `permissions.db` unless `AGENT_OS_PERMISSIONS_DB` overrides it. Runtime API rule administration additionally requires `AGENT_OS_PERMISSIONS_ADMIN_TOKEN`.
 
 ## Chat and Sessions
 The CLI provides a `chat` loop for multi-turn conversations, preserving state across invocations. Sessions are indexed locally via SQLite, allowing users to list, inspect, and delete historical runs. A summarization engine condenses old messages into a rolling `conversation_summary`, injecting bounded context alongside `hot_context`.
+
+## Runtime API
+
+`agent-os serve` runs a localhost-first FastAPI interface from the `[serve]`
+extra. It exposes health, sessions, chat WebSocket, brief, graph, schedule, and
+run-control endpoints for external UIs. The run API records each invocation in
+the run ledger, streams replayable Server-Sent Events, and lets an operator
+approve or cancel interrupted work without coupling the UI to LangGraph
+internals. It is the seam between the runtime and any interface, including the
+default operator console or a private dashboard.
 
 ## Extension points
 

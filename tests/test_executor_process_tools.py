@@ -62,7 +62,7 @@ def test_bash_output_truncation(test_sandbox):
     ):
         match = re.match(r"^\[truncated (\d+) bytes\]\n", output)
         assert match is not None
-        retained = output[match.end():]
+        retained = output[match.end() :]
         assert len(output.encode()) <= 100 * 1024
         assert int(match.group(1)) == original_size - len(retained.encode())
 
@@ -127,10 +127,12 @@ def test_run_tests_forwards_timeout(mock_bash, test_sandbox):
 
     run_tests.invoke({"pytest_args": [], "timeout_seconds": 45})
 
-    mock_bash.invoke.assert_called_once_with({
-        "cmd_args": [sys.executable, "-m", "pytest"],
-        "timeout_seconds": 45,
-    })
+    mock_bash.invoke.assert_called_once_with(
+        {
+            "cmd_args": [sys.executable, "-m", "pytest"],
+            "timeout_seconds": 45,
+        }
+    )
 
 
 @patch("agent_os.tools.run_tests.bash")

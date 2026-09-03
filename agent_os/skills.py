@@ -71,9 +71,25 @@ class SkillRegistry:
                 )
             for alias in skill.aliases:
                 if alias == existing.name or alias in existing.aliases:
-                    raise ValueError(f"Alias '{alias}' already used by '{existing.name}'")
+                    raise ValueError(
+                        f"Alias '{alias}' already used by '{existing.name}'"
+                    )
 
         self._skills[skill.name] = skill
+
+    def register_many(self, skills: Sequence[RegisteredSkill]) -> None:
+        """Validate a batch first, then register it without partial mutation.
+
+        Package loading can discover several handlers.  A collision in a later
+        handler must not leave the earlier handlers in the live registry.
+        """
+        shadow = SkillRegistry()
+        for existing in self._skills.values():
+            shadow.register(existing)
+        for skill in skills:
+            shadow.register(skill)
+        for skill in skills:
+            self._skills[skill.name] = skill
 
     def get(self, name: str) -> RegisteredSkill | None:
         """Retrieve a skill by canonical name."""

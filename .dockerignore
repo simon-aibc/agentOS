@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Secrets
+.claude/
+.sandbox/
+.DS_Store
+
+# Virtual environments
+.venv
+venv
+env
+.env*
+!.env.example
+
+# Caches
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Build output
+build/
+dist/
+*.egg-info/
+
+# Databases
+*.sqlite
+*.db
+*-wal
+*-shm
+
+# Data dirs
+sandbox/
+logs/
+dashboard/

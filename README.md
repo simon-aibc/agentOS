@@ -1,36 +1,136 @@
-# Agent OS LangGraph
+# Agent OS
 
 [![CI](https://github.com/simon-aibc/agent-os-langgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/simon-aibc/agent-os-langgraph/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Python 3.11–3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)
-![Tests: 408 passing](https://img.shields.io/badge/tests-408%20passing-brightgreen.svg)
-[![Release](https://img.shields.io/github/v/release/simon-aibc/agent-os-langgraph)](https://github.com/simon-aibc/agent-os-langgraph/releases/latest)
-![Dependencies pinned](https://img.shields.io/badge/dependencies-pinned-informational.svg)
+![Python 3.11-3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)
+[![Release](https://img.shields.io/badge/release-v2.4.0-green.svg)](https://github.com/simon-aibc/agent-os-langgraph/releases/tag/v2.4.0)
+[![Typed](https://img.shields.io/badge/types-py.typed-informational.svg)](agent_os/api)
 
-An open-source backbone for building durable, controllable AI agent systems.
-Deterministic tools handle known work; ambiguous work escalates through an architect, human plan gate, and sandboxed executor.
-Typed state, durable SQLite checkpoints, MCP adapters, and an offline-tested streaming CLI demonstrate production engineering.
+> **Agent OS: Everything is a Plugin.**<br>
+> An open-source, local-first Operating System and extensible harness for autonomous AI agents.
 
-**Current release:** [v1.5.0](https://github.com/simon-aibc/agent-os-langgraph/releases/tag/v1.5.0) ·
-[Changelog](CHANGELOG.md) · [Product specification](docs/PRD.md) ·
-[Architecture](docs/architecture.md) · [Roadmap](docs/roadmap.md)
+Agent OS is an auditable, self-hostable agent operating system providing deterministic fast-path execution, read-only architect planning, human approval governance, immutable policy floors, memory retrieval lifecycles, anti-SSRF signed event egress, and a modular plugin runtime. Under the hood, stateful graph execution and checkpointing are powered by LangGraph.
+
+**Current release:** [v2.4.0](https://github.com/simon-aibc/agent-os-langgraph/releases/tag/v2.4.0) |
+[Changelog](CHANGELOG.md) |
+[Architecture](docs/architecture.md) |
+[Extending Agent OS](docs/EXTENDING.md) |
+[Self-Hosting](docs/self-hosting.md) |
+[Product Spec](docs/PRD.md) |
+[Roadmap](docs/roadmap.md)
+
+---
+
+## Table of Contents
+
+1. [Core OS Primitives](#core-os-primitives)
+2. [Everything is a Plugin](#everything-is-a-plugin)
+3. [Built With](#built-with)
+4. [Quickstart](#quickstart)
+5. [Usage & Operating Modes](#usage--operating-modes)
+6. [Self-Hosting & Operations](#self-hosting--operations)
+7. [Extension Conformance Kit](#extension-conformance-kit)
+8. [Security & Governance Invariants](#security--governance-invariants)
+9. [Development & Contributing](#development--contributing)
+10. [License](#license)
+11. [Contact](#contact)
+12. [Acknowledgments](#acknowledgments)
+
+---
+
+## Core OS Primitives
+
+Agent OS organizes autonomous agent operations into distinct operating system subsystems:
+
+- **Kernel / Deterministic Fast-Path**: Exact, low-risk tool operations execute immediately with zero model latency and zero token cost.
+- **Architect & Planning Subsystem**: Ambiguous or high-complexity tasks escalate to a read-only architect that produces structured execution proposals.
+- **Governance & Policy Floor**: Side-effect proposals require approval; non-bypassable policy floors enforce strict security constraints regardless of policy mode.
+- **Process Isolation & Sandbox Execution**: Side effects execute strictly within configured workspace sandbox boundaries.
+- **Memory & Retrieval Subsystem**: Multi-vault connectors (Markdown, G-Brain, SQLite, vectors) with cold-start indexing lifecycles (`IndexableMemory`) and non-blocking context injection (`ContextProvider`).
+- **Persistence & Audit Subsystem**: SQLite state stores with live additive migrations, WAL-checkpoint backups, strategy assignment audit traces, and actor provenance (`Principal`).
+- **IPC & Event Egress**: Real-time Server-Sent Events (SSE), local cron/interval scheduling, and DNS-rebinding-safe HMAC-signed webhooks (`EventSink`).
 
 ```mermaid
 flowchart TD
-    START(["START"]) --> planner["planner"] --> supervisor["supervisor"]
-    supervisor -->|"new task"| dispatcher["tool_dispatcher"]
-    dispatcher -->|"tool success"| END(["END"])
-    dispatcher -->|"low confidence or failure"| supervisor
-    supervisor -->|"escalated"| architect["architect"]
-    architect --> gate["human_gate"]
-    gate -->|"approved or rejected"| supervisor
-    supervisor -->|"approved"| executor["executor"]
-    supervisor -->|"rejected"| architect
+    START(["User Request"]) --> planner["Planner (Context Injection & Retrieval)"]
+    planner --> supervisor["Supervisor Engine"]
+    supervisor -->|"deterministic fast-path"| dispatcher["Tool Dispatcher (Kernel Mode)"]
+    dispatcher -->|"success"| END(["Task Complete"])
+    dispatcher -->|"complex / ambiguous"| supervisor
+    supervisor -->|"escalate"| architect["Architect (Read-Only Planning)"]
+    architect --> gate["Human Gate (Immutable Policy Floor)"]
+    gate -->|"approved"| supervisor
+    gate -->|"rejected"| architect
+    supervisor -->|"execute"| executor["Executor (Sandbox Scoped)"]
     executor --> supervisor
-    supervisor -->|"execution complete"| END
+    supervisor -->|"complete"| END
 ```
 
-## 30-second quickstart
+---
+
+## Everything is a Plugin
+
+Agent OS exposes a frozen, identity-preserving public facade under `agent_os.api` with 7 standard plugin entry-point groups:
+
+| Plugin Group | Protocol / Contract | Description |
+|---|---|---|
+| `agent_os.connectors` | `Connector` | Custom action tools, CLI integrations, and external API connectors |
+| `agent_os.memory_connectors` | `MemoryConnector`, `WritableMemory`, `IndexableMemory` | Long-term memory vaults, knowledge bases, and vector storage |
+| `agent_os.backends` | `BackendAdapter` | Model execution backends (Claude Code, Codex CLI, LiteLLM, Ollama) |
+| `agent_os.policies` | `PolicyEngine` | Custom policy evaluators, role constraints, and governance rules |
+| `agent_os.skill_packages` | `SkillPackageLoader` | Reusable skill bundles, domain workflows, and instruction sets |
+| `agent_os.context_providers` | `ContextProvider` | Pre-planner retrieval hooks and dynamic context injection |
+| `agent_os.event_sinks` | `EventSink` | Lifecycle run event egress, telemetry, and signed webhook sinks |
+
+### Authoring an Agent OS Plugin
+
+Third-party extensions build directly against `agent_os.api` without private internals:
+
+```python
+from typing import Any
+
+from agent_os.api import (
+    Connector,
+    ExecutionResult,
+)
+
+class MyCustomConnector:
+    name = "my_tool"
+
+    def capabilities(self) -> dict[str, Any]:
+        return {"actions": ["custom_action"]}
+
+    def describe_side_effect(self, action: str) -> str:
+        return "read"
+
+    def invoke(self, action: str, args: dict[str, Any]) -> ExecutionResult:
+        return ExecutionResult(status="completed", outputs={"status": "ok"})
+```
+
+---
+
+## Built With
+
+- [LangGraph](https://github.com/langchain-ai/langgraph) for graph execution,
+  interrupts, and checkpointed workflows
+- [LangChain](https://github.com/langchain-ai/langchain) and
+  [LiteLLM](https://github.com/BerriAI/litellm) for model/provider boundaries
+- [Pydantic](https://docs.pydantic.dev/) for structured contracts
+- [FastAPI](https://fastapi.tiangolo.com/) for the runtime API
+- SQLite for local checkpoints, run ledgers, schedules, and state
+- Docker Compose for local self-hosting
+
+---
+
+## Quickstart
+
+### Prerequisites
+
+- Python 3.11 or 3.12
+- Git
+- Docker with Compose v2 (optional, for self-hosted container deployment)
+
+### 1. Installation
 
 ```bash
 git clone https://github.com/simon-aibc/agent-os-langgraph.git
@@ -38,348 +138,194 @@ cd agent-os-langgraph
 
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
+pip install -e ".[dev,serve]"
+```
 
-# Deterministic Tier-1 path: no LLM or network required.
+### 2. Zero-LLM Fast-Path Execution
+
+Execute deterministic operations directly through the kernel fast-path:
+
+```bash
 agent-os "read_file README.md" --thread-id quickstart --sandbox .
 ```
 
-Expected structure:
-
+Output:
 ```text
 [THREAD] quickstart
-[SUPERVISOR] → tool_dispatcher
+[SUPERVISOR] -> tool_dispatcher
 [TOOL] read_file({"path": "README.md"})
-[RESULT] # Agent OS LangGraph ...
+[RESULT] # Agent OS ...
 ```
 
-### End-to-end coding workflow
-
-A semantic task misses the deterministic tool path, produces a read-only plan,
-pauses for approval, and only then allows the executor to edit and verify:
-
-```text
-$ agent-os "add type hints to math_util.py and verify it compiles" \
-    --thread-id type-hints-demo --sandbox ./sandbox
-
-[THREAD] type-hints-demo
-[SUPERVISOR] → tool_dispatcher
-[SUPERVISOR] → architect
-[HUMAN] Review the proposed implementation plan.
-> approved
-[SUPERVISOR] → executor
-[SUPERVISOR] → __end__
-```
-
-The checkpoint remains resumable if the process is interrupted before the
-final node. Provider subprocesses do not expose private reasoning; the CLI
-shows graph transitions, tool boundaries, and validated result contracts.
-
-For architect/executor workflows, copy [.env.example](.env.example) to `.env`,
-configure `LLM_ROUTER`, `LLM_ARCHITECT`, and `LLM_EXECUTOR`, then run:
+### 3. Configure Model Roles
 
 ```bash
-agent-os "refactor the target module and add regression tests" \
-  --thread-id refactor-demo \
+cp .env.example .env
+```
+
+Agent OS reads 3 decoupled roles:
+
+```bash
+LLM_ROUTER="ollama/qwen2.5:14b"
+LLM_ARCHITECT="anthropic/claude-opus-4-8"
+LLM_EXECUTOR="openai/gpt-5.5"
+```
+
+Subscription CLIs are also supported out of the box:
+
+```bash
+LLM_ARCHITECT=cli/claude-code
+LLM_EXECUTOR=cli/codex
+```
+
+---
+
+## Usage & Operating Modes
+
+### Architect Planning & Approval Gates
+
+When tasks require file modifications, code creation, or complex workflows, Agent OS builds a formal proposal and waits for approval:
+
+```bash
+agent-os "add type annotations to math_util.py and run tests" \
+  --thread-id type-check-task \
   --sandbox ./sandbox
 ```
 
-At the plan gate the CLI pauses inline and accepts `approved`, `y`, or
-`rejected: <reason>`. A stopped process resumes from SQLite without repeating
-the original task. If the process stops mid-run outside a human gate, `--resume`
-continues from the next checkpointed node:
+At the approval prompt, choose `approved` (one-time), `session`, `always_approve` (learned rule), or `rejected: <reason>`.
+
+Interrupted runs resume seamlessly from SQLite checkpoints:
 
 ```bash
-agent-os --resume --thread-id refactor-demo --sandbox ./sandbox
-# Equivalent entrypoint: python -m agent_os ...
+agent-os --resume --thread-id type-check-task --sandbox ./sandbox
 ```
 
-## Tier-1 Command Escaping
-
-Tier-1 `write` is intentionally simple: `write <path> :: <content>`. Shell
-quoting still happens before Agent OS sees the task, so multiline content needs
-command substitution or a source file.
+### Multi-Turn Chat, Sessions & Schedules
 
 ```bash
-# WRONG: writes literal backslash-n characters.
-agent-os "write foo.txt :: line1\nline2"
+# Interactive multi-turn CLI session
+agent-os chat --thread-id dev-session
 
-# RIGHT: let the shell expand real newlines before Agent OS receives the task.
-agent-os "write foo.txt :: $(printf 'line1\nline2')"
+# Inspect active sessions and audit trails
+agent-os sessions list
+agent-os sessions inspect dev-session
 
-# RIGHT: write content from an existing template file.
-agent-os "write foo.txt :: $(cat template.txt)"
+# Local cron and interval background schedules
+agent-os schedule list
 ```
 
-## Beyond one-shot runs
+### Self-Update & Live Migrations
 
-Agent OS supports continuous, multi-turn, and background operations beyond basic one-shot execution:
+```bash
+# Check latest updates against GitHub releases
+agent-os update --check
 
-- `agent-os chat` provides multi-turn conversations and seamless workflow resumption.
-- `agent-os sessions list|inspect|delete` manages durable session state.
-- `agent-os brief` runs autonomous briefing engines.
-- `agent-os serve` provides a localhost FastAPI interface (`[serve]` extra) to integrate with external dashboards.
+# Upgrade runtime with pre-migration database backup and daemon restart
+agent-os update --yes --reload
+```
 
-## Architecture
+---
 
-- `SimonState` is a `TypedDict`; complex boundaries such as `ArchitectBrief`,
-  `RouterDecision`, and `ExecutorReport` are Pydantic models.
-- The supervisor uses explicit routing precedence. The dispatcher can terminate
-  directly on tool success or return to the supervisor for agent escalation.
-- The architect has read-only planning tools. Its brief reaches `human_gate`
-  before the executor agent can edit files or run verification commands.
-- LangGraph `interrupt()` plus a SQLite checkpointer preserves pending work by
-  `thread_id`, including across process restarts.
-- The CLI consumes `astream_events(version="v2")` and prints model tokens,
-  node routes, tool calls, and results—never private chain-of-thought.
+## Self-Hosting & Operations
 
-See [docs/architecture.md](docs/architecture.md) for routing precedence,
-state rationale, trust boundaries, and the decision log. The approved product
-requirements are in [docs/PRD.md](docs/PRD.md).
+### Run with Docker Compose
 
-## What each milestone demonstrates
+Start the complete Agent OS backend and Web Operator Console:
 
-| Milestone | Implemented capability | Hiring signal |
-|---|---|---|
-| R1 | Typed state and compiled graph skeleton | Understands LangGraph state and graph construction |
-| R2 | Conditional supervisor routing and bounded recursion | Designs deterministic control flow instead of prompt-only routing |
-| R3 | Read-only architect subgraph with structured brief | Separates planning from execution and tests agents offline |
-| R4 | Executor subgraph with path checks, `shell=False`, and timeouts | Treats tool execution as a security boundary |
-| R5 | Interrupt-driven human plan gate | Adds approval before agent-planned side effects |
-| R6 | SQLite checkpoints and restart/resume tests | Builds workflows that survive process failure |
-| R7 | Three-tier router, pluggable registry, and MCP adapters | Balances deterministic speed, model judgment, and extensibility |
-| R8 | Rich streaming CLI with durable resume | Delivers an operator-facing interface with explicit failure semantics |
-| R9 | Public documentation, CI, lint, and repo hardening | Treats maintainability and presentation as product requirements |
-| R11 | Prompt caching, trimming, retries, and output caps | Makes model cost and retained data explicit boundaries |
-| v1.0.1 | Resume, Bash status, write docs, and retry fixes | Converts dogfood findings into regression-tested patches |
-| v1.1.x | Claude Code and Codex CLI delegators | Integrates subscription agents without pretending they are raw chat models |
-| v1.2.x | Backend portability and profiles | Resolves tight coupling via an explicit BackendAdapter Protocol |
+```bash
+docker compose up -d
+```
 
-## Extending Agent OS
+- **Agent OS Runtime API**: `http://127.0.0.1:4680`
+- **Operator Console**: `http://127.0.0.1:4100`
+- **Health Check**: `http://127.0.0.1:4680/api/health`
 
-### Register a native tool
+### Run Runtime Server Locally
 
-`RegisteredSkill` accepts LangChain `BaseTool` objects or plain callables. A
-custom skill becomes available to the structured router without changing the
-dispatcher:
+```bash
+agent-os serve --host 127.0.0.1 --port 4680
+```
+
+Core Runtime Endpoints:
+- `GET /api/health` — Runtime health and update cache
+- `POST /api/runs` — Trigger non-blocking asynchronous agent runs
+- `GET /api/runs/{run_id}/events` — Server-Sent Events (SSE) stream for live execution logs
+- `POST /api/runs/{run_id}/approve` — Submit gate decisions for suspended runs
+
+---
+
+## Extension Conformance Kit
+
+Agent OS includes a lightweight testing kit under `agent_os.testing.conformance` to validate plugins in standalone CI:
 
 ```python
-from langchain_core.tools import tool
+from agent_os.testing.conformance import (
+    check_connector,
+    check_memory_connector,
+    check_context_provider,
+    check_event_sink,
+)
 
-from agent_os.default_registry import build_default_registry
-from agent_os.graph import build_graph
-from agent_os.nodes.tool_dispatcher import build_tool_dispatcher_node
-from agent_os.skills import RegisteredSkill
-
-
-@tool
-def summarize(text: str) -> str:
-    """Return a compact summary."""
-    return text[:200]
-
-
-registry = build_default_registry()
-registry.register(RegisteredSkill("summarize", (), summarize))
-dispatcher = build_tool_dispatcher_node(registry=registry)
-custom_graph = build_graph(tool_dispatcher_node_impl=dispatcher)
+def test_custom_plugin_conformance():
+    sink = MyCustomEventSink()
+    check_event_sink(sink)
 ```
 
-### Load MCP tools
-
-```python
-from agent_os.default_registry import build_default_registry_with_mcp
-from agent_os.graph import build_graph
-from agent_os.nodes.tool_dispatcher import build_tool_dispatcher_node
-
-
-async def build_mcp_graph():
-    registry = await build_default_registry_with_mcp()
-    dispatcher = build_tool_dispatcher_node(registry=registry)
-    return build_graph(tool_dispatcher_node_impl=dispatcher)
-```
-
-Enable servers with `MCP_FILESYSTEM_ENABLED`, `MCP_CODEGRAPH_ENABLED`, and
-`MCP_GBRAIN_URL`. `MCP_CODEGRAPH_COMMAND` overrides the CodeGraph executable.
-
-> `from agent_os.graph import graph` intentionally uses native tools only.
-> Environment flags do not auto-load MCP tools into that default graph; use the
-> asynchronous registry construction and dispatcher injection shown above.
-
-### Swap LLMs
-
-Model roles use provider/model strings from `.env`. Tests or applications may
-also inject any compatible `BaseChatModel` into `build_architect_agent()`,
-`build_executor_agent()`, or `build_tool_dispatcher_node()`.
-
-## Using subscription CLI tools
-
-Agent OS can delegate work to installed subscription tools instead of making
-direct per-token API calls. This avoids separate API billing by using an
-existing subscription, subject to the provider's plan and rate limits.
-
-| Available access | Architect | Executor | Supported |
-|---|---|---|:---:|
-| Claude Code only | `cli/claude-code` | `cli/claude-code` | Yes |
-| Codex only | `cli/codex` | `cli/codex` | Yes |
-| Claude Code + Codex | `cli/claude-code` | `cli/codex` | Yes |
-| API-backed models | LiteLLM-compatible model | LiteLLM-compatible model | Yes |
-| Antigravity (candidate) | — | — | Not yet |
-| Hermes CLI | — | — | Not yet; requires a delegator adapter |
-
-The Antigravity adapter registers as a not-yet-supported stub; see
-[docs/v1.2-portability.md](docs/v1.2-portability.md) for its acceptance
-criteria.
-
-The router is configured independently. It can use a local Ollama model or any
-LiteLLM-compatible structured-output model; it does not require the same
-provider as the architect or executor.
+Run the complete test suite:
 
 ```bash
-# Check authentication before invoking agent-os.
-claude auth status
-codex login status
-
-# Authenticate first when either status check fails.
-claude auth login
-codex login
-
-export LLM_ARCHITECT=cli/claude-code
-export LLM_EXECUTOR=cli/codex
-
-agent-os "refactor the target module" --thread-id cli-demo
+pytest -q
 ```
 
-> **Authentication note:** Backend subprocesses receive `stdin=DEVNULL`, so
-> they cannot complete an interactive login or re-authentication during a
-> workflow. Automatic token refresh may still work when the CLI supports it;
-> otherwise authenticate outside Agent OS before starting the workflow.
+---
 
-The delegators apply fixed permission modes and reject known access-expansion
-arguments:
+## Security & Governance Invariants
 
-- **Architect modes:** Claude uses `plan` mode; Codex uses `read-only` mode.
-- **Executor modes:** Claude uses `acceptEdits`; Codex uses `workspace-write`.
-- The shared runner rejects cwd overrides, `--add-dir`, and dangerous bypass
-  flags.
+- **Non-Bypassable Policy Floors**: Hard safety constraints (e.g. `payment` or `privileged` actions) cannot be bypassed by plugins, even with `mode="off"`.
+- **Anti-SSRF DNS-Rebinding Protection**: Webhooks validate target IPs against loopback/private CIDRs, pin sockets to verified IPs, and preserve TLS SNI/certificate validation.
+- **Server-Trusted Actor Identity**: `Principal` provenance is resolved server-side to prevent header spoofing in multi-tenant environments.
+- **Workspace Isolation**: Database files, permission rules, and observation records are isolated per workspace path.
 
-The read-only CLI Architect may retry transient network or rate-limit failures.
-The side-effectful CLI Executor never auto-retries because partial edits may
-already exist in the sandbox; its error tells the operator to inspect the
-working tree before resuming.
+### Deployment Trust Boundaries
 
-Compared with direct API calls, subscription CLIs have process startup overhead
-and do not expose their internal reasoning stream to Agent OS. The current graph
-also invokes roles sequentially. A typical architect/executor turn takes roughly
-15–30 seconds, but latency varies by task, provider, and subscription limits.
+Agent OS provides application-level controls, not complete isolation. Human
+approval governs agent-planned executor work, but explicit Tier-1
+`write_file` and `bash` requests remain direct user instructions. Native
+writes and subprocesses resolve under `AGENT_OS_SANDBOX`; subprocesses use
+argument arrays, `shell=False`, timeouts, redaction, and output caps.
 
-> **Security note:** CLI argument guards, a fixed `cwd`, and permission modes
-> are defense-in-depth—not OS or container isolation. They do not guarantee
-> untrusted code cannot touch external paths. Use a container or microVM for
-> untrusted workloads.
+Checkpoints can contain tasks, messages, plans, tool results, and file
+content, so treat them as sensitive local data. CLI argument guards and
+permission modes are defense-in-depth rather than an OS sandbox. Run
+untrusted workloads in a container, microVM, or another isolation layer.
+Never commit `.env`, checkpoints, sandboxes, provider credentials, private
+vault content, or real workflow logs.
 
-### CLI backend troubleshooting
+---
 
-- **Authentication failure:** run `claude auth login` or `codex login` outside
-  Agent OS, then repeat the task or resume its checkpoint.
-- **Partial executor failure:** inspect the sandbox before resuming. Agent OS
-  never automatically retries a side-effectful CLI executor.
-- **Completed thread cannot resume:** use a new `--thread-id`; completed graphs
-  have no pending node.
-- **Provider binary missing:** confirm `claude` or `codex` is on `PATH` in the
-  same shell that launches `agent-os`.
+## Development & Contributing
 
-## Token Economy
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Contributing guidelines and development workflow.
+- [docs/EXTENDING.md](docs/EXTENDING.md) — Comprehensive guide to developing Agent OS plugins.
+- [docs/architecture.md](docs/architecture.md) — Deep-dive system architecture.
 
-Every LLM call is a cost boundary. Deterministic tools form the free, fast
-path; model-backed routing and agent steps are bounded explicitly.
+---
 
-| Pattern | Description |
-| :--- | :--- |
-| Structured outputs | Pydantic contracts bound the shape of model responses. |
-| Cascading router | Tier 1 is deterministic; Tier 2 uses a cheaper model before Tier 3 agent escalation. |
-| HITL gate | Executor work starts only after the proposed plan is approved. |
-| Anthropic prompt caching | Ephemeral `cache_control` blocks target up to 90% lower cost for eligible cached-input tokens. |
-| 8K message trimming | Architect and Executor invocation histories are trimmed before model calls. |
-| Output caps | Bash streams are capped at 100KB each; serialized dispatcher results at 50KB total. |
-| Offline startup | CLI initialization uses LiteLLM's local cost map and avoids incidental provider calls. |
-| Transient retries | API Architect/Executor calls and the read-only CLI Architect retry 429, 503, and timeout errors with 2/4/8s backoff; the CLI Executor does not. |
+## License
 
-### Illustrative benchmark
+[MIT](LICENSE) © Simon Tran
 
-These estimates depend on the model, provider, and workload; they are not
-measured SLAs.
+---
 
-- **Tier 1 (Deterministic)** = $0 / ~0ms LLM latency
-- **Tier 2 (Structured LLM)** = ~$0.0002 / ~200ms
-- **Tier 3 (Agent Escalation)** = ~$0.01 / ~2s
-- **Subscription CLI (Claude/Codex)** = $0 marginal cost / ~15–30s per
-  architect/executor turn (approximate; varies by task and provider limits)
+## Contact
 
-### Output limits
+Simon Tran — [GitHub @simon-aibc](https://github.com/simon-aibc)
 
-Bash standard output and error are truncated independently to 100KB (UTF-8
-bytes) each. Total serialized dispatcher tool results are capped at 50KB.
-Subprocess capture still buffers in memory before truncation; containerized,
-streamed execution remains v2.
+Project: [simon-aibc/agent-os-langgraph](https://github.com/simon-aibc/agent-os-langgraph)
 
-## Security and trust boundaries
+## Acknowledgments
 
-- The HITL gate protects **agent-planned executor work**. Explicit Tier-1
-  commands such as `write_file ...` or `bash ...` are treated as direct user
-  instructions and execute without an additional approval prompt.
-- Native writes and subprocesses use `AGENT_OS_SANDBOX` (default `./sandbox`).
-  CLI `--sandbox` also constrains reads for that invocation. These are path/cwd
-  controls, not OS or container isolation.
-- Subprocesses use argument arrays, `shell=False`, captured output, and a
-  timeout. Untrusted models or commands still require a container.
-- The filesystem MCP server additionally requires its resolved root to be
-  strictly below the user home. Every enabled MCP server extends the trust
-  boundary and must be trusted.
-- SQLite checkpoints may contain tasks, messages, plans, tool results, and
-  file content. They are gitignored and should be protected as sensitive data.
-- Checkpoint deserialization allowlists application Pydantic types. CLI tool
-  arguments redact common credential fields before display.
-- CLI startup uses LiteLLM's local model-cost map, avoiding an incidental
-  metadata request before the workflow begins.
-- Bash and dispatcher results are byte-capped before checkpoint storage. The
-  subprocess capture itself remains an in-memory boundary, not an OS resource
-  limit.
-
-## CLI exit codes
-
-| Code | Meaning |
-|---:|---|
-| `0` | Workflow completed successfully |
-| `1` | Workflow, graph execution, or Tier-1 tool execution failed |
-| `2` | Invalid CLI/configuration/resume request |
-| `130` | Interrupted with Ctrl+C; checkpoint preserved when available |
-
-## Development and testing
-
-```bash
-python -m ruff check .
-python -m pytest -W error
-```
-
-The default suite is offline and deselects real MCP integration tests. Run an
-enabled integration explicitly, for example:
-
-```bash
-MCP_FILESYSTEM_ENABLED=true \
-AGENT_OS_SANDBOX="$HOME/agent-os-sandbox" \
-python -m pytest -m integration tests/test_mcp_integration.py
-```
-
-CI runs Ruff and the offline test suite on Python 3.11 and 3.12.
-
-See [CHANGELOG.md](CHANGELOG.md) for release history. External integration
-tests remain opt-in so a fresh clone never requires paid provider access.
-
-## Roadmap
-
-See [docs/roadmap.md](docs/roadmap.md) for current state, north star goals, and the public milestone sequence.
-
-Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md). Report vulnerabilities
-privately according to [SECURITY.md](SECURITY.md).
-
-Licensed under the [MIT License](LICENSE).
+- The README structure follows the community-friendly shape popularized by
+  [Best-README-Template](https://github.com/othneildrew/Best-README-Template).
+- LangGraph, LangChain, LiteLLM, FastAPI, Docker, Claude Code, and Codex
+  provide ecosystem components that Agent OS integrates.

@@ -9,10 +9,10 @@ from langgraph.types import Command
 from agent_os.graph import build_graph
 from agent_os.routing import build_runtime_config
 from agent_os.schemas import ArchitectBrief, ExecutorReport
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def fake_architect_node(state: SimonState) -> dict[str, ArchitectBrief]:
+def fake_architect_node(state: AgentState) -> dict[str, ArchitectBrief]:
     return {
         "plan": ArchitectBrief(
             files=["restart_demo.py"],
@@ -22,7 +22,7 @@ def fake_architect_node(state: SimonState) -> dict[str, ArchitectBrief]:
     }
 
 
-def fake_executor_node(state: SimonState) -> dict[str, ExecutorReport]:
+def fake_executor_node(state: AgentState) -> dict[str, ExecutorReport]:
     return {
         "executor_output": ExecutorReport(
             diff="restart-safe diff",
@@ -42,7 +42,7 @@ def pause_workflow(thread_id: str, status_path: Path) -> None:
         ),
     )
     config = build_runtime_config(thread_id)
-    initial_state: SimonState = {
+    initial_state: AgentState = {
         "messages": [],
         "task": "prove workflow survives restart",
         "plan": None,

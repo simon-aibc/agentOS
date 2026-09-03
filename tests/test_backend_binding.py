@@ -379,7 +379,9 @@ async def test_legacy_checkpoint_force_rebind_attaches_current(
     assert code == 0
     assert len(graph.update_calls) == 1
     assert isinstance(graph.binding, BackendBinding)
-    assert "Attaching current backend binding to a legacy checkpoint" in output.getvalue()
+    assert (
+        "Attaching current backend binding to a legacy checkpoint" in output.getvalue()
+    )
 
 
 def _paused_graph(checkpointer):

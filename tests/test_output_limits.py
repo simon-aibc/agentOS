@@ -8,7 +8,7 @@ from agent_os.output_limits import truncate_utf8
 def _assert_truncation(original: str, result: str, max_bytes: int) -> None:
     match = re.match(r"^\[truncated (\d+) bytes\]\n", result)
     assert match is not None
-    retained = result[match.end():]
+    retained = result[match.end() :]
     omitted = len(original.encode("utf-8")) - len(retained.encode("utf-8"))
     assert int(match.group(1)) == omitted
     assert len(result.encode("utf-8")) <= max_bytes

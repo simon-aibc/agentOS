@@ -58,11 +58,9 @@ def test_grep_outside_root(test_workspace):
 def test_plan_writer(test_workspace):
     before_mtime = (test_workspace / "hello.txt").stat().st_mtime
 
-    result = plan_writer.invoke({
-        "files": ["src/code.py"],
-        "changes": ["Modify foo"],
-        "verify_cmd": "pytest"
-    })
+    result = plan_writer.invoke(
+        {"files": ["src/code.py"], "changes": ["Modify foo"], "verify_cmd": "pytest"}
+    )
 
     assert isinstance(result, ArchitectBrief)
     assert result.files == ["src/code.py"]

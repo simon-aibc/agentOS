@@ -1,20 +1,22 @@
 import re
 from unittest.mock import MagicMock
 
+import pytest
+from langgraph.errors import GraphInterrupt
 from langgraph.types import Command
 from pydantic import BaseModel
 
 from agent_os.nodes.tool_dispatcher import build_tool_dispatcher_node
 from agent_os.schemas import BashResult, RouterDecision
 from agent_os.skills import RegisteredSkill, SkillRegistry
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 class DummyResult(BaseModel):
     foo: str
 
 
-def make_state(task: str) -> SimonState:
+def make_state(task: str) -> AgentState:
     return {
         "messages": [],
         "task": task,
@@ -29,7 +31,9 @@ def test_dispatcher_tier1():
     registry = SkillRegistry()
 
     mock_handler = MagicMock(return_value=DummyResult(foo="bar"))
-    registry.register(RegisteredSkill(name="read_file", aliases=["read"], handler=mock_handler))
+    registry.register(
+        RegisteredSkill(name="read_file", aliases=["read"], handler=mock_handler)
+    )
 
     mock_llm = MagicMock()
 
@@ -50,7 +54,9 @@ def test_dispatcher_tier1():
 def test_dispatcher_tier2_high_confidence():
     registry = SkillRegistry()
     mock_handler = MagicMock(return_value="done")
-    registry.register(RegisteredSkill(name="custom_tool", aliases=[], handler=mock_handler))
+    registry.register(
+        RegisteredSkill(name="custom_tool", aliases=[], handler=mock_handler)
+    )
 
     mock_llm = MagicMock()
     mock_structured = MagicMock()
@@ -71,7 +77,9 @@ def test_dispatcher_tier2_high_confidence():
 def test_dispatcher_tier3_low_confidence():
     registry = SkillRegistry()
     mock_handler = MagicMock(return_value="done")
-    registry.register(RegisteredSkill(name="custom_tool", aliases=[], handler=mock_handler))
+    registry.register(
+        RegisteredSkill(name="custom_tool", aliases=[], handler=mock_handler)
+    )
 
     mock_llm = MagicMock()
     mock_structured = MagicMock()
@@ -112,7 +120,9 @@ def test_dispatcher_tier3_unknown_tool():
 def test_dispatcher_tool_failure():
     registry = SkillRegistry()
     mock_handler = MagicMock(side_effect=RuntimeError("Tool crashed"))
-    registry.register(RegisteredSkill(name="read_file", aliases=["read"], handler=mock_handler))
+    registry.register(
+        RegisteredSkill(name="read_file", aliases=["read"], handler=mock_handler)
+    )
 
     node = build_tool_dispatcher_node(registry=registry, router_llm=MagicMock())
 
@@ -122,6 +132,27 @@ def test_dispatcher_tool_failure():
     assert cmd.update["router_escalated"] is True
     assert cmd.update["tool_result"].success is False
     assert cmd.update["tool_result"].output == "Tool crashed"
+
+
+def test_dispatcher_propagates_langgraph_interrupts():
+    """A policy/human interrupt must pause the graph instead of escalating."""
+    registry = SkillRegistry()
+
+    def requires_approval(path: str, content: str) -> None:
+        raise GraphInterrupt()
+
+    registry.register(
+        RegisteredSkill(
+            name="write_file",
+            aliases=["write"],
+            handler=requires_approval,
+        )
+    )
+
+    node = build_tool_dispatcher_node(registry=registry, router_llm=MagicMock())
+
+    with pytest.raises(GraphInterrupt):
+        node(make_state("write path/to/f.txt :: contents"))
 
 
 def test_dispatcher_bash_nonzero_returncode_marks_failure():
@@ -135,9 +166,7 @@ def test_dispatcher_bash_nonzero_returncode_marks_failure():
             timed_out=False,
         )
     )
-    registry.register(
-        RegisteredSkill(name="bash", aliases=[], handler=mock_handler)
-    )
+    registry.register(RegisteredSkill(name="bash", aliases=[], handler=mock_handler))
 
     node = build_tool_dispatcher_node(registry=registry, router_llm=MagicMock())
     cmd = node(make_state("bash python"))
@@ -224,7 +253,7 @@ def test_dispatcher_output_truncation():
     output = cmd.update["tool_result"].output
     match = re.match(r"^\[truncated (\d+) bytes\]\n", output)
     assert match is not None
-    retained = output[match.end():]
+    retained = output[match.end() :]
     assert len(output.encode("utf-8")) <= 50 * 1024
     assert int(match.group(1)) == len(large_output.encode()) - len(retained.encode())
 

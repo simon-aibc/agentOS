@@ -8,10 +8,10 @@ from langgraph.types import Command
 from agent_os.graph import build_graph
 from agent_os.routing import build_runtime_config
 from agent_os.schemas import ArchitectBrief, ExecutorReport
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def make_state(**overrides: object) -> SimonState:
+def make_state(**overrides: object) -> AgentState:
     state: dict[str, object] = {
         "messages": [],
         "task": "do something normal",
@@ -21,14 +21,14 @@ def make_state(**overrides: object) -> SimonState:
         "hot_context": None,
     }
     state.update(overrides)
-    return cast(SimonState, state)
+    return cast(AgentState, state)
 
 
 class ArchitectSpy:
     def __init__(self) -> None:
         self.feedback: list[str | None] = []
 
-    def __call__(self, state: SimonState) -> dict[str, ArchitectBrief]:
+    def __call__(self, state: AgentState) -> dict[str, ArchitectBrief]:
         feedback = state.get("human_feedback")
         self.feedback.append(feedback)
         change = "implement requested change"
@@ -47,7 +47,7 @@ class ExecutorSpy:
     def __init__(self) -> None:
         self.call_count = 0
 
-    def __call__(self, state: SimonState) -> dict[str, ExecutorReport]:
+    def __call__(self, state: AgentState) -> dict[str, ExecutorReport]:
         self.call_count += 1
         return {
             "executor_output": ExecutorReport(
@@ -62,12 +62,9 @@ class ToolDispatcherSpy:
     def __init__(self) -> None:
         self.call_count = 0
 
-    def __call__(self, state: SimonState) -> Command:
+    def __call__(self, state: AgentState) -> Command:
         self.call_count += 1
-        return Command(
-            update={"router_escalated": True},
-            goto="supervisor"
-        )
+        return Command(update={"router_escalated": True}, goto="supervisor")
 
 
 def build_test_graph():

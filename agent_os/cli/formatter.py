@@ -19,7 +19,9 @@ SENSITIVE_KEYS = {
 def _redact_sensitive(value: Any) -> Any:
     if isinstance(value, dict):
         return {
-            key: "***" if str(key).lower() in SENSITIVE_KEYS else _redact_sensitive(item)
+            key: "***"
+            if str(key).lower() in SENSITIVE_KEYS
+            else _redact_sensitive(item)
             for key, item in value.items()
         }
     if isinstance(value, (list, tuple)):

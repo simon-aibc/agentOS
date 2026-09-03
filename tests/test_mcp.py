@@ -79,6 +79,7 @@ def test_build_mcp_server_configs_filesystem_valid_sandbox(mock_home):
             str(sandbox.resolve()),
         ]
 
+
 def test_build_mcp_server_configs_filesystem_invalid_sandbox(
     mock_home,
     tmp_path,
@@ -99,7 +100,9 @@ def test_build_mcp_server_configs_filesystem_invalid_sandbox(
         },
         clear=True,
     ):
-        with pytest.raises(ValueError, match="cannot be the user home directory itself"):
+        with pytest.raises(
+            ValueError, match="cannot be the user home directory itself"
+        ):
             build_mcp_server_configs()
 
     for invalid_path in ["/", "/etc", "/var", "/System"]:
@@ -108,7 +111,9 @@ def test_build_mcp_server_configs_filesystem_invalid_sandbox(
             {"MCP_FILESYSTEM_ENABLED": "true", "AGENT_OS_SANDBOX": invalid_path},
             clear=True,
         ):
-            with pytest.raises(ValueError, match="must be inside the user home directory"):
+            with pytest.raises(
+                ValueError, match="must be inside the user home directory"
+            ):
                 build_mcp_server_configs()
 
     outside_dir = tmp_path / "outside_home"
@@ -358,7 +363,8 @@ def test_build_default_registry_native_only():
     assert registry.get("read_file") is not None
     assert registry.get("write_file") is not None
     assert registry.get("bash") is not None
-    assert len(registry.names()) == 3
+    assert registry.get("memory_write") is not None
+    assert set(registry.names()) == {"read_file", "write_file", "bash", "memory_write"}
 
 
 def test_build_default_registry_with_mcp_tools():
@@ -370,7 +376,8 @@ def test_build_default_registry_with_mcp_tools():
     my_mcp_tool.name = "mcp_s1_my_mcp_tool"
     registry = build_default_registry(mcp_tools=[my_mcp_tool])
 
-    assert len(registry.names()) == 4
+    assert len(registry.names()) == 5
+    assert registry.get("memory_write") is not None
     mcp_skill = registry.get("mcp_s1_my_mcp_tool")
     assert mcp_skill is not None
     assert mcp_skill.invoke({"x": "hello"}) == "hello!"
@@ -387,7 +394,8 @@ def test_build_default_registry_collision(caplog):
     with caplog.at_level(logging.WARNING):
         registry = build_default_registry(mcp_tools=[duplicate_tool])
 
-    assert len(registry.names()) == 3
+    assert len(registry.names()) == 4
+    assert registry.get("memory_write") is not None
     assert "Skipping MCP tool 'read_file' due to registry collision" in caplog.text
 
 
@@ -399,6 +407,7 @@ async def test_build_default_registry_with_mcp_async():
         client_factory=FakeClient,
     )
 
-    assert len(registry.names()) == 4
+    assert len(registry.names()) == 5
     assert registry.get("mcp_s1_tool_from_s1") is not None
     assert registry.get("read_file") is not None
+    assert registry.get("memory_write") is not None

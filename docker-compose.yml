@@ -1,0 +1,51 @@
+name: agent-os
+
+services:
+  backend:
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:4680:4680"
+    volumes:
+      - agentos_data:/data
+      - ${AGENT_OS_WORKSPACE:-.}:/workspace
+    environment:
+      - LLM_ROUTER
+      - LLM_ARCHITECT
+      - LLM_EXECUTOR
+      - AGENT_OS_CORS_ORIGINS
+      - AGENT_OS_CHECKPOINTS_DB=/data/checkpoints.db
+      - AGENT_OS_SCHED_DB=/data/checkpoints.sched.db
+      - AGENT_OS_SCHEDULER_ENABLED
+      - AGENT_OS_SCHED_TICK_SECONDS
+      - AGENT_OS_SANDBOX=/workspace
+      - ANTHROPIC_API_KEY
+      - OPENAI_API_KEY
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:4680/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  console:
+    # Publication gate: replace only with the anonymously pullable digest emitted
+    # by the reviewed agent-os-console release workflow.
+    image: ghcr.io/simon-aibc/agent-os-console@sha256:1ee8c32becb93212c10fa74bdb0b74329187f02464e97353e522bd389fcb7ebb
+    ports:
+      - "127.0.0.1:4100:4100"
+    environment:
+      - AGENT_OS_API_BASE=${AGENT_OS_API_BASE:-http://127.0.0.1:4680}
+      - HOSTNAME=0.0.0.0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4100/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  agentos_data:

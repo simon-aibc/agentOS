@@ -172,6 +172,9 @@ def test_build_cli_executor_invoker_codex_success(monkeypatch, tmp_path):
         schema = json.loads(Path(schema_file).read_text(encoding="utf-8"))
         assert schema["additionalProperties"] is False
         assert schema["required"] == list(schema["properties"])
+        assert "$defs" not in schema
+        assert "outputs" not in schema["properties"]
+        assert "usage" not in schema["properties"]
 
         idx_output = args.index("--output-last-message")
         output_file = args[idx_output + 1]
@@ -181,9 +184,7 @@ def test_build_cli_executor_invoker_codex_success(monkeypatch, tmp_path):
 
         return MagicMock()
 
-    with patch(
-        "agent_os.backends.run_cli_command", side_effect=mock_run_command
-    ):
+    with patch("agent_os.backends.run_cli_command", side_effect=mock_run_command):
         report = invoker(state)
 
         assert isinstance(report, CodingResult)
@@ -214,9 +215,7 @@ def test_build_cli_executor_invoker_codex_invalid_payload(monkeypatch, tmp_path)
 
         return MagicMock()
 
-    with patch(
-        "agent_os.backends.run_cli_command", side_effect=mock_run_command
-    ):
+    with patch("agent_os.backends.run_cli_command", side_effect=mock_run_command):
         with pytest.raises(ValueError) as exc_info:
             invoker(state)
 

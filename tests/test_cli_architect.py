@@ -57,6 +57,21 @@ def test_build_sandbox_inventory_does_not_follow_symlink_cycle(monkeypatch, tmp_
     assert _build_sandbox_inventory() == ["nested/inside.txt"]
 
 
+def test_build_sandbox_inventory_skips_generated_and_dependency_trees(
+    monkeypatch, tmp_path
+):
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(sandbox))
+    (sandbox / "package.json").write_text("{}", encoding="utf-8")
+    for directory in (".git", ".graphify", "dist", "node_modules"):
+        ignored = sandbox / directory
+        ignored.mkdir()
+        (ignored / "noise.txt").write_text("noise", encoding="utf-8")
+
+    assert _build_sandbox_inventory() == ["package.json"]
+
+
 def test_build_sandbox_inventory_bounds(monkeypatch, tmp_path):
     sandbox = tmp_path / "sandbox"
     sandbox.mkdir()
@@ -115,6 +130,7 @@ def test_build_architect_prompt_rejection_feedback(monkeypatch, tmp_path):
 
 def test_build_cli_architect_invoker_unknown_backend():
     from agent_os.agents.cli_architect import build_cli_architect_invoker
+
     with pytest.raises(ValueError, match="Unsupported CLI architect backend: unknown"):
         build_cli_architect_invoker("unknown")
 
@@ -134,7 +150,9 @@ def test_build_cli_architect_invoker_claude_success(monkeypatch, tmp_path):
 
     with patch("agent_os.backends.run_cli_command") as mock_run:
         # Mock run_cli_command returning stream-json style payload
-        mock_run.return_value = MagicMock(stdout='{"type": "result", "structured_output": {"summary": "s", "files": ["f"], "changes": ["c"], "verify_cmd": "v"}}')
+        mock_run.return_value = MagicMock(
+            stdout='{"type": "result", "structured_output": {"summary": "s", "files": ["f"], "changes": ["c"], "verify_cmd": "v"}}'
+        )
         brief = invoker(state)
 
         assert isinstance(brief, CodingPlan)
@@ -162,7 +180,15 @@ def test_build_cli_architect_invoker_codex_success(monkeypatch, tmp_path):
         idx = args.index("--output-last-message")
         out_path = args[idx + 1]
         with open(out_path, "w") as f:
-            json.dump({"summary": "s2", "files": ["f2"], "changes": ["c2"], "verify_cmd": "v2"}, f)
+            json.dump(
+                {
+                    "summary": "s2",
+                    "files": ["f2"],
+                    "changes": ["c2"],
+                    "verify_cmd": "v2",
+                },
+                f,
+            )
         return MagicMock()
 
     with patch("agent_os.backends.run_cli_command", side_effect=mock_run_command):
@@ -172,6 +198,100 @@ def test_build_cli_architect_invoker_codex_success(monkeypatch, tmp_path):
         assert brief.summary == "s2"
         assert brief.files == ["f2"]
         assert brief.verify_cmd == "v2"
+
+
+def test_codex_adapter_skips_git_repository_check_inside_agent_os_sandbox(monkeypatch, tmp_path):
+    import json
+
+    from agent_os.agents.cli_architect import build_cli_architect_invoker
+    from agent_os.schemas import CodingPlan
+
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(sandbox))
+    invoker = build_cli_architect_invoker("codex")
+
+    def mock_run_command(binary, args):
+        assert binary == "codex"
+        assert "--skip-git-repo-check" in args
+        output_path = args[args.index("--output-last-message") + 1]
+        with open(output_path, "w") as output_file:
+            json.dump(
+                {
+                    "summary": "s",
+                    "files": ["plan.md"],
+                    "changes": ["document plan"],
+                    "verify_cmd": "pytest",
+                },
+                output_file,
+            )
+        return MagicMock()
+
+    with patch("agent_os.backends.run_cli_command", side_effect=mock_run_command):
+        brief = invoker({"task": "test", "human_feedback": None})
+
+    assert isinstance(brief, CodingPlan)
+    assert brief.summary == "s"
+    assert brief.files == ["plan.md"]
+    assert brief.changes == ["document plan"]
+    assert brief.verify_cmd == "pytest"
+
+
+def test_build_cli_architect_invoker_carries_acceptance_criteria(monkeypatch, tmp_path):
+    import json
+
+    from agent_os.agents.cli_architect import build_cli_architect_invoker
+    from agent_os.schemas import CodingPlan
+
+    sandbox = tmp_path / "sandbox"
+    sandbox.mkdir()
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(sandbox))
+
+    # 1. Claude-code with acceptance_criteria
+    invoker_claude = build_cli_architect_invoker("claude-code")
+    state = {
+        "task": "clarify task",
+        "human_feedback": None,
+        "strategy_hint": {
+            "strategy_id": "clarify-first-v1",
+            "version": 1,
+            "task_kind": "workflow",
+            "selection_reason": "explicit",
+            "directive": "surface 3-5 binary criteria in acceptance_criteria",
+        },
+    }
+
+    with patch("agent_os.backends.run_cli_command") as mock_run:
+        mock_run.return_value = MagicMock(
+            stdout='{"type": "result", "structured_output": {"summary": "s", "files": ["f"], "changes": ["c"], "verify_cmd": "v", "acceptance_criteria": ["Crit 1", "Crit 2"]}}'
+        )
+        brief = invoker_claude(state)
+        assert isinstance(brief, CodingPlan)
+        assert brief.acceptance_criteria == ["Crit 1", "Crit 2"]
+
+    # 2. Codex with acceptance_criteria
+    invoker_codex = build_cli_architect_invoker("codex")
+
+    def mock_run_command(binary, args):
+        idx = args.index("--output-last-message")
+        out_path = args[idx + 1]
+        with open(out_path, "w") as f:
+            json.dump(
+                {
+                    "summary": "s_codex",
+                    "files": ["f_codex"],
+                    "changes": ["c_codex"],
+                    "verify_cmd": "v_codex",
+                    "acceptance_criteria": ["Crit A", "Crit B", "Crit C"],
+                },
+                f,
+            )
+        return MagicMock()
+
+    with patch("agent_os.backends.run_cli_command", side_effect=mock_run_command):
+        brief_codex = invoker_codex(state)
+        assert isinstance(brief_codex, CodingPlan)
+        assert brief_codex.acceptance_criteria == ["Crit A", "Crit B", "Crit C"]
 
 
 def test_build_cli_architect_invoker_claude_security_contract(monkeypatch, tmp_path):
@@ -188,7 +308,9 @@ def test_build_cli_architect_invoker_claude_security_contract(monkeypatch, tmp_p
     state = {"task": "test", "human_feedback": None}
 
     with patch("agent_os.backends.run_cli_command") as mock_run:
-        mock_run.return_value = MagicMock(stdout='{"type": "result", "structured_output": {"summary": "s", "files": [], "changes": [], "verify_cmd": ""}}')
+        mock_run.return_value = MagicMock(
+            stdout='{"type": "result", "structured_output": {"summary": "s", "files": [], "changes": [], "verify_cmd": ""}}'
+        )
         invoker(state)
 
         args = mock_run.call_args.args[1]
@@ -238,6 +360,9 @@ def test_build_cli_architect_invoker_codex_security_contract(monkeypatch, tmp_pa
         schema = json.loads(Path(schema_file).read_text(encoding="utf-8"))
         assert schema["additionalProperties"] is False
         assert schema["required"] == list(schema["properties"])
+        assert "$defs" not in schema
+        assert "proposed_actions" not in schema["properties"]
+        assert "metadata" not in schema["properties"]
 
         idx_output = args.index("--output-last-message")
         output_file = args[idx_output + 1]
@@ -255,7 +380,9 @@ def test_build_cli_architect_invoker_codex_security_contract(monkeypatch, tmp_pa
     assert output_file is not None and not os.path.exists(output_file)
 
 
-def test_build_cli_architect_invoker_codex_temp_cleanup_on_exception(monkeypatch, tmp_path):
+def test_build_cli_architect_invoker_codex_temp_cleanup_on_exception(
+    monkeypatch, tmp_path
+):
     import os
 
     from agent_os.agents.cli_architect import build_cli_architect_invoker
@@ -295,12 +422,16 @@ def test_build_cli_architect_invoker_invalid_payload(monkeypatch, tmp_path):
 
     with patch("agent_os.backends.run_cli_command") as mock_run:
         # Missing required fields
-        mock_run.return_value = MagicMock(stdout='{"type": "result", "structured_output": {"files": []}}')
+        mock_run.return_value = MagicMock(
+            stdout='{"type": "result", "structured_output": {"files": []}}'
+        )
 
         with pytest.raises(ValueError) as exc_info:
             invoker(state)
 
-        assert "Failed to validate claude-code structured output as CodingPlan" in str(exc_info.value)
+        assert "Failed to validate claude-code structured output as CodingPlan" in str(
+            exc_info.value
+        )
         # Should not leak raw payload in validation error message
         assert "structured_output" not in str(exc_info.value).lower()
 
@@ -322,11 +453,10 @@ def test_build_cli_architect_invoker_invalid_json_is_redacted(monkeypatch, tmp_p
     assert "secret-value" not in str(exc_info.value)
 
 
-
-
 @pytest.mark.integration
 def test_integration_claude_readonly(monkeypatch, tmp_path):
     from agent_os.agents.cli_architect import build_cli_architect_invoker
+
     if not shutil.which("claude"):
         pytest.skip("claude binary not found on PATH")
 
@@ -341,7 +471,7 @@ def test_integration_claude_readonly(monkeypatch, tmp_path):
     invoker = build_cli_architect_invoker("claude-code")
     state = {
         "task": "Edit sentinel.txt to say 'I WAS HERE' and then return an ArchitectBrief detailing the file you modified.",
-        "human_feedback": None
+        "human_feedback": None,
     }
 
     # Run the invoker, which should run `claude` in plan mode, preventing edits
@@ -357,6 +487,7 @@ def test_integration_claude_readonly(monkeypatch, tmp_path):
 @pytest.mark.integration
 def test_integration_codex_readonly(monkeypatch, tmp_path):
     from agent_os.agents.cli_architect import build_cli_architect_invoker
+
     if not shutil.which("codex"):
         pytest.skip("codex binary not found on PATH")
 
@@ -371,7 +502,7 @@ def test_integration_codex_readonly(monkeypatch, tmp_path):
     invoker = build_cli_architect_invoker("codex")
     state = {
         "task": "Edit sentinel.txt to say 'I WAS HERE' and then return an ArchitectBrief detailing the file you modified.",
-        "human_feedback": None
+        "human_feedback": None,
     }
 
     # Run the invoker, which should run `codex` in read-only sandbox mode, preventing edits

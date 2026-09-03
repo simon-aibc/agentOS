@@ -10,8 +10,16 @@ from agent_os.checkpoints import DEFAULT_CHECKPOINT_DB
 from agent_os.sandbox import get_sandbox_root
 from agent_os.state import BackendBinding
 
+POLICY_MODE_OFF_WARNING = (
+    'Workspace policy mode "off" disables all policy checks, including the '
+    "payment/privileged floor, and is outside the supported deployment envelope."
+)
 
-def run_doctor(json_output: bool) -> tuple[int, str]:
+
+def run_doctor(
+    json_output: bool,
+    workspace_path: str | None = None,
+) -> tuple[int, str]:
     warnings: list[str] = []
     exit_code = 0
 
@@ -58,30 +66,65 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
     profile_name_val = None
     profile_source = None
     resolved_profile = None
-    try:
-        profile_file = profile_config.load_profiles()
-        profile_name_val, profile_source = profile_config.select_profile_name(
-            None,
-            os.getenv("AGENT_OS_PROFILE"),
-            profile_file.default,
-        )
-        if profile_name_val is not None:
-            resolved_profile = profile_config.resolve_profile(
-                profile_file,
-                profile_name_val,
-                registry,
-                get_sandbox_root().resolve(),
-            )
-    except Exception as error:
-        warnings.append(f"Profile error: {error}")
-        exit_code = 1
+    workspace_binding = None
+    policy_mode = "manual"
+    effective_workspace = workspace_path or os.getenv("AGENT_OS_WORKSPACE")
+    if effective_workspace:
+        try:
+            from agent_os.workspace import load_workspace
 
-    if resolved_profile is None:
+            workspace = load_workspace(effective_workspace)
+            policy_mode = str(workspace.policy.get("mode", "manual"))
+            if policy_mode == "off":
+                warnings.append(POLICY_MODE_OFF_WARNING)
+                exit_code = 1
+            configured_backends = dict(workspace.backends)
+            workspace_binding = BackendBinding(
+                router=configured_backends.get("router"),
+                architect=_normalize_workspace_backend(configured_backends.get("architect")),
+                executor=_normalize_workspace_backend(configured_backends.get("executor")),
+                profile_name=None,
+                sandbox_root=str(get_sandbox_root().resolve()),
+            )
+        except Exception as error:
+            warnings.append(f"Workspace error: {error}")
+            exit_code = 1
+    else:
+        try:
+            profile_file = profile_config.load_profiles()
+            profile_name_val, profile_source = profile_config.select_profile_name(
+                None,
+                os.getenv("AGENT_OS_PROFILE"),
+                profile_file.default,
+            )
+            if profile_name_val is not None:
+                resolved_profile = profile_config.resolve_profile(
+                    profile_file,
+                    profile_name_val,
+                    registry,
+                    get_sandbox_root().resolve(),
+                )
+        except Exception as error:
+            warnings.append(f"Profile error: {error}")
+            exit_code = 1
+
+    if workspace_binding is not None:
+        resolved_config = {
+            "router": workspace_binding.router,
+            "architect": workspace_binding.architect,
+            "executor": workspace_binding.executor,
+            "sandbox": workspace_binding.sandbox_root,
+            "policy_mode": policy_mode,
+        }
+        profile_name_val = workspace_binding.profile_name
+        profile_source = "workspace"
+    elif resolved_profile is None:
         resolved_config = {
             "router": os.getenv("LLM_ROUTER"),
             "architect": os.getenv("LLM_ARCHITECT"),
             "executor": os.getenv("LLM_EXECUTOR"),
             "sandbox": str(get_sandbox_root().resolve()),
+            "policy_mode": policy_mode,
         }
     else:
         resolved_config = {
@@ -89,10 +132,13 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
             "architect": resolved_profile.architect,
             "executor": resolved_profile.executor,
             "sandbox": resolved_profile.sandbox,
+            "policy_mode": policy_mode,
         }
 
     checkpoint_env = os.getenv("AGENT_OS_CHECKPOINTS_DB")
-    cp_path_str = checkpoint_env if checkpoint_env is not None else DEFAULT_CHECKPOINT_DB
+    cp_path_str = (
+        checkpoint_env if checkpoint_env is not None else DEFAULT_CHECKPOINT_DB
+    )
     cp_path = Path(cp_path_str).resolve()
 
     cp_exists = cp_path.exists()
@@ -108,7 +154,9 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
     else:
         cp_writable = os.access(cp_path.parent, os.W_OK)
         if not cp_writable:
-            warnings.append(f"Checkpoint DB parent directory is not writable: {cp_path.parent}")
+            warnings.append(
+                f"Checkpoint DB parent directory is not writable: {cp_path.parent}"
+            )
 
     if not cp_writable:
         warnings.append("Checkpoint DB is not writable.")
@@ -117,7 +165,7 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
     checkpoints_db = {
         "path": str(cp_path),
         "exists": cp_exists,
-        "writable": cp_writable
+        "writable": cp_writable,
     }
     backend_binding = BackendBinding(
         router=resolved_config["router"],
@@ -133,9 +181,13 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
         if backend_str and backend_str.startswith("cli/"):
             backend_name = backend_str[4:]
 
-            adapter_info = next((a for a in adapters_info if a["name"] == backend_name), None)
+            adapter_info = next(
+                (a for a in adapters_info if a["name"] == backend_name), None
+            )
             if not adapter_info:
-                warnings.append(f"Configured {role} backend '{backend_str}' is not registered.")
+                warnings.append(
+                    f"Configured {role} backend '{backend_str}' is not registered."
+                )
                 exit_code = 1
                 continue
 
@@ -147,18 +199,26 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
                 continue
 
             if role not in adapter_info["supported_roles"]:
-                warnings.append(f"Configured {role} backend '{backend_str}' does not support role '{role}'.")
+                warnings.append(
+                    f"Configured {role} backend '{backend_str}' does not support role '{role}'."
+                )
                 exit_code = 1
 
             if adapter_info["binary_path"] is None:
-                warnings.append(f"Configured {role} backend '{backend_str}' binary is missing.")
+                warnings.append(
+                    f"Configured {role} backend '{backend_str}' binary is missing."
+                )
                 exit_code = 1
 
             if adapter_info["auth_status"]["status"] == "unauthenticated":
-                warnings.append(f"Configured {role} backend '{backend_str}' is unauthenticated.")
+                warnings.append(
+                    f"Configured {role} backend '{backend_str}' is unauthenticated."
+                )
                 exit_code = 1
             elif adapter_info["auth_status"]["status"] == "unknown":
-                warnings.append(f"Configured {role} backend '{backend_str}' auth status is unknown.")
+                warnings.append(
+                    f"Configured {role} backend '{backend_str}' auth status is unknown."
+                )
 
     router_backend = resolved_config["router"]
     if router_backend and router_backend.startswith("cli/"):
@@ -180,7 +240,7 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
         "profile_source": profile_source,
         "checkpoints_db": checkpoints_db,
         "backend_binding": backend_binding.model_dump(),
-        "warnings": warnings
+        "warnings": warnings,
     }
 
     if json_output:
@@ -196,7 +256,9 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
         lines.append(f"- {ad['name']} ({ad['binary_name']})")
         lines.append(f"  Roles : {', '.join(ad['supported_roles'])}")
         lines.append(f"  Binary: {ad['binary_path'] or 'missing'}")
-        lines.append(f"  Auth  : {ad['auth_status']['status']} ({ad['auth_status']['detail']})")
+        lines.append(
+            f"  Auth  : {ad['auth_status']['status']} ({ad['auth_status']['detail']})"
+        )
 
     candidates = [item for item in adapters_info if item["stub"]]
     if candidates:
@@ -249,3 +311,12 @@ def run_doctor(json_output: bool) -> tuple[int, str]:
         lines.append("STATUS: FAIL")
 
     return exit_code, "\n".join(lines)
+
+
+def _normalize_workspace_backend(value: object) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    return normalized if normalized.startswith("cli/") else f"cli/{normalized}"

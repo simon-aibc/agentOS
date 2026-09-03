@@ -27,19 +27,20 @@ Create `skills/vault_qa/handlers.py`:
 ```python
 from agent_os.connectors import MarkdownVaultConnector
 
+
 def vault_qa(task: str, **kwargs) -> str:
     # 1. Parse query
     query = task.replace("hỏi vault:", "").strip()
-    
+
     # 2. Setup connector (in real usage, this might be injected or configured)
     connector = MarkdownVaultConnector("./sandbox")
-    
+
     # 3. Search and format
     results = connector.search(query)
-    
+
     if not results:
         return f"Không tìm thấy thông tin cho: {query}"
-        
+
     out = [f"Kết quả cho '{query}':"]
     for r in results:
         out.append(f"- {r['path']}")

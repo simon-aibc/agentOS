@@ -72,7 +72,9 @@ def _reject_secrets(data: Any, path: str = "") -> None:
                     "credential",
                 )
             ):
-                raise ProfileLoadError(f"Profile configuration contains rejected secret key at '{path}.{k}'")
+                raise ProfileLoadError(
+                    f"Profile configuration contains rejected secret key at '{path}.{k}'"
+                )
             _reject_secrets(v, f"{path}.{k}" if path else k)
     elif isinstance(data, list):
         for i, item in enumerate(data):
@@ -88,7 +90,7 @@ def load_profiles(path: Path | None = None) -> ProfileFile:
             target_path = Path(xdg_config) / "agent-os" / "profiles.toml"
         else:
             target_path = Path.home() / ".config" / "agent-os" / "profiles.toml"
-            
+
         if not target_path.exists() and xdg_config is None:
             # Check both? The instruction says:
             # 2. $XDG_CONFIG_HOME/agent-os/profiles.toml
@@ -159,7 +161,9 @@ def resolve_profile(
 ) -> ResolvedProfile:
     if name not in profile_file.profiles:
         available = ", ".join(profile_file.profiles.keys()) or "none"
-        raise ProfileLoadError(f"Profile '{name}' not found. Available profiles: {available}")
+        raise ProfileLoadError(
+            f"Profile '{name}' not found. Available profiles: {available}"
+        )
 
     # Build inheritance chain
     chain = []
@@ -176,34 +180,41 @@ def resolve_profile(
             raise ProfileLoadError(
                 f"Deep inheritance is not supported: {' -> '.join(chain + [current_name])}"
             )
-            
+
         chain.append(current_name)
         current_prof = profile_file.profiles[current_name]
         current_name = current_prof.extends
 
     # Resolve fields (child overrides parent)
     resolved_data = {}
-    
+
     # Base from parent if exists
     if len(chain) > 1:
         parent = profile_file.profiles[chain[-1]]
         for field in ("router", "architect", "executor", "sandbox", "hot_context"):
             resolved_data[field] = getattr(parent, field)
-            
+
     # Apply child overrides
     child = profile_file.profiles[name]
     child_set = child.model_fields_set
-    for field in ("router", "architect", "executor", "sandbox", "hot_context", "summary"):
+    for field in (
+        "router",
+        "architect",
+        "executor",
+        "sandbox",
+        "hot_context",
+        "summary",
+    ):
         if field in child_set:
             resolved_data[field] = getattr(child, field)
-            
+
     # Resolve sandbox
     sandbox_str = resolved_data.get("sandbox")
     if sandbox_str is not None:
         resolved_sandbox = Path(sandbox_str).expanduser().resolve()
     else:
         resolved_sandbox = sandbox_root_absolute
-        
+
     resolved_data["sandbox"] = str(resolved_sandbox)
 
     # Validate backends
@@ -215,7 +226,7 @@ def resolve_profile(
                 registry.resolve(role, backend_name)
             except ValueError as e:
                 raise ProfileLoadError(str(e)) from e
-                
+
     router_str = resolved_data.get("router")
     if router_str and router_str.startswith("cli/"):
         raise ProfileLoadError(f"Router cannot be a CLI backend: {router_str}")

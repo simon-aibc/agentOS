@@ -1,28 +1,33 @@
-# Agent OS LangGraph — public product specification
+# Agent OS - public product specification
 
-- **Current version:** 1.5.0
+- **Current version:** 2.4.0
 - **Status:** Released
 - **License:** MIT
 - **Runtime:** Python 3.11+
 - **Repository:** https://github.com/simon-aibc/agent-os-langgraph
-- **Quality gate:** 263 offline tests, `pytest -W error`, Ruff, Python 3.11/3.12 CI
+- **Quality gate:** offline tests with `pytest -W error`, Ruff, dependency checks, and Python 3.11/3.12 CI
 
 ## 1. Product summary
 
-Agent OS LangGraph is a local-first coding-agent orchestrator built with
-LangGraph. It sends exact, low-risk commands through deterministic tools and
-escalates ambiguous coding work through a read-only architect, a human plan
-gate, and a sandbox-scoped executor.
+Agent OS is a local-first agent operating system and extensible harness powered
+by LangGraph. It executes exact, low-risk commands through kernel fast-path
+deterministic tools and escalates ambiguous work through a read-only architect,
+an immutable human/policy gate, and a sandbox-scoped executor.
 
-The project demonstrates production-oriented agent patterns without claiming
-to provide operating-system isolation:
+The system provides production-grade agent primitives:
 
-- explicit typed state and routing precedence;
-- structured contracts between agent roles;
-- human approval before agent-planned writes;
-- durable SQLite checkpoints and cross-process resume;
+- explicit typed state and deterministic kernel fast-path;
+- structured contracts between agent roles (router, architect, executor);
+- human approval and non-bypassable policy floors before agent writes;
+- durable SQLite checkpoints, live additive migrations, and cross-process resume;
 - bounded subprocess execution and output retention;
-- native, MCP, API-model, and subscription-CLI extension points.
+- generic plugin runtime across 7 entry-point groups ("Everything is a Plugin");
+- retrieval lifecycle indexing (`IndexableMemory`) and non-blocking context injection;
+- signed, anti-SSRF lifecycle webhook egress (`EventSink`);
+- Runtime API, run ledger, local cron scheduler, and self-host Docker Compose;
+- explicit, workspace-scoped permission memory for native memory writes;
+- structured outcome observations and bounded, deterministic strategy selection;
+- stable, frozen `agent_os.api` facade and third-party conformance testing kit.
 
 ## 2. Target users
 
@@ -44,7 +49,7 @@ agent boundaries, failure handling, tests, and security trade-offs.
 
 ## 3. User journey
 
-For a semantic coding request such as “add type hints and verify compilation”:
+For a semantic request such as "add type hints and verify compilation":
 
 1. `planner` preserves the task and initializes graph state.
 2. `supervisor` sends the unresolved task to `tool_dispatcher`.
@@ -61,7 +66,7 @@ For a semantic coding request such as “add type hints and verify compilation�
 
 ### State and graph
 
-- The graph uses a typed `SimonState` with Pydantic boundary artifacts.
+- The graph uses a typed `AgentState` with Pydantic boundary artifacts.
 - Node destinations are explicit and testable.
 - Routing loops are bounded by a configurable recursion limit.
 
@@ -97,17 +102,51 @@ For a semantic coding request such as “add type hints and verify compilation�
 
 - SQLite checkpoints survive process restarts by `thread_id`.
 - The CLI supports new tasks, HITL resume, and mid-run resume.
+- The run ledger records graph runs and events in a separate derived SQLite
+  file.
+- The scheduler stores cron/interval jobs in its own SQLite file and dispatches
+  due `run` and `brief` jobs from a long-running runtime.
 - Observable graph, model, and tool events stream without exposing hidden
   chain-of-thought.
 - Exit codes distinguish success, failure, invalid usage, and interruption.
 
+### Runtime API and self-hosting
+
+- `agent-os serve` exposes localhost-first health, run, event, graph, brief,
+  chat, session, and schedule interfaces.
+- Run events can be replayed and live-tailed over Server-Sent Events.
+- Interrupted runs can be approved or cancelled through the Runtime API.
+- Docker Compose starts the backend and the separately published operator
+  console on localhost-bound ports.
+- Runtime data lives in persistent local volumes or configured SQLite paths.
+
 ### Extensibility
 
+- `agent_os.api` is the stable v2 import surface for extension authors.
 - `SkillRegistry` accepts native callables and LangChain tools.
 - MCP servers load independently so one unavailable server does not remove
   healthy tools.
+- Memory connectors, backend adapters, policies, and skill-package types are
+  part of the documented public extension surface.
 - Architect, executor, router, dispatcher, and checkpointer implementations
   can be injected for tests or deployment-specific behavior.
+
+### Permission memory and outcome evidence
+
+- Native `memory_write` actions use explicit human outcomes (`approved`,
+  `session`, `always_approve`, `always_deny`, or rejection).
+- Persistent rules are limited to exact connector, mode, and note-reference
+  scopes and are isolated per workspace.
+- Terminal Runtime runs record a bounded `unknown` observation; operators may
+  label it `accepted`, `rejected`, or `edited`.
+- For the `workflow` task kind, the selector chooses only the fixed,
+  versioned strategies `default-v1`, `verification-first-v1`, or
+  `concise-plan-v1` using deterministic explicit, evidence-backed,
+  exploration, and default precedence.
+- v2.2.1 preserves the original selection reason and a sanitized decision
+  snapshot across replay. Raw task content, model output, tool arguments, and
+  memory contents are not stored in observation or assignment evidence; raw
+  outcome evidence is never added to the architect prompt.
 
 ## 5. Security requirements and limits
 
@@ -122,10 +161,26 @@ For a semantic coding request such as “add type hints and verify compilation�
 - Checkpoint deserialization allowlists application model types.
 - Checkpoints, sandboxes, credentials, and local dogfood logs remain ignored by
   Git.
+- In the supported production policy modes (`manual` and `smart`), `payment` and
+  `privileged` proposals are denied rather than routed to human approval. The
+  product does not currently express threshold- or role-based exceptions such
+  as "payments above an amount require CEO approval"; `mode="off"` is an unsafe,
+  local-only test escape hatch outside the supported deployment envelope.
+- Learned permission rules are exact, workspace-local memory-write rules, not
+  per-user authorization. `taught_by` records who created a rule for provenance,
+  but it is not part of rule lookup or enforcement and does not provide RBAC or
+  ABAC.
+- Durable SQLite checkpoints make graph state resumable, but the Runtime API and
+  scheduler do not provide a durable distributed work queue. Run dispatch has
+  no worker lease, heartbeat, attempt accounting, automatic redelivery,
+  deduplication key, or dead-letter queue.
 
 These are application-level controls. They do not isolate the network, child
 processes, CPU, memory, or the host filesystem from hostile executable code.
 Untrusted workloads require a container or microVM.
+
+The complete supported deployment envelope and claim boundaries are documented
+in [`platform/known-limitations.md`](platform/known-limitations.md).
 
 ## 6. Supported backends
 
@@ -141,14 +196,20 @@ Claude-only, Codex-only, and mixed Claude/Codex role configurations are valid.
 Other agent CLIs require a new delegator that implements the same structured
 contracts; they are not automatically supported by accepting a model name.
 
-## 7. Non-goals for v1.5
+## 7. Non-goals for v2.x
 
 - OS-level isolation for untrusted code.
 - Hosted multi-user service or distributed checkpoint database.
 - Automatic loading of every local MCP server or personal skill.
-- Vault memory, personal-profile injection, Telegram, cron, dashboard, or TUI.
-- Adapters for Hermes, Antigravity, or arbitrary third-party agent CLIs.
+- Public inclusion of personal vaults, client memory, proprietary prompts,
+  Telegram bots, or private dashboards.
+- Supported adapters for Hermes, Antigravity, or arbitrary third-party agent
+  CLIs without enforceable noninteractive contracts and permission modes.
 - Display of private model reasoning or chain-of-thought.
+- Autonomous self-improvement or a general-purpose behavioral learning system;
+  outcome evidence only selects the fixed planning strategies documented above.
+- Centralized enterprise governance, immutable compliance audit, or SOC 2
+  readiness; the shipped audit trace is local and workspace-scoped.
 
 ## 8. Release acceptance
 

@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from agent_os.sandbox import get_sandbox_root, resolve_sandbox_path
+from agent_os.sandbox import (
+    get_read_root,
+    get_sandbox_root,
+    resolve_sandbox_path,
+    resolve_workspace_root,
+    sandbox_scope,
+)
 
 
 def test_get_sandbox_root_default(monkeypatch):
@@ -60,3 +66,26 @@ def test_resolve_sandbox_path_symlink_escape(monkeypatch, tmp_path, tmp_path_fac
 
     with pytest.raises(ValueError, match="resolves outside the sandbox"):
         resolve_sandbox_path("link.txt")
+
+
+def test_workspace_scope_overrides_read_and_write_roots(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(tmp_path))
+
+    with sandbox_scope("project") as resolved:
+        assert resolved == project.resolve()
+        assert get_sandbox_root() == project.resolve()
+        assert get_read_root() == project.resolve()
+
+    assert get_sandbox_root() == tmp_path.resolve()
+    assert get_read_root() == tmp_path.resolve()
+
+
+def test_resolve_workspace_rejects_escape_and_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("AGENT_OS_SANDBOX", str(tmp_path))
+
+    with pytest.raises(ValueError, match="outside the sandbox"):
+        resolve_workspace_root(str(tmp_path.parent))
+    with pytest.raises(ValueError, match="not an existing directory"):
+        resolve_workspace_root("missing")

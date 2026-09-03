@@ -8,7 +8,7 @@ from agent_os.backends import (
     BackendRegistry,
 )
 from agent_os.schemas import ArchitectBrief
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 class FakeAdapter:
@@ -16,7 +16,7 @@ class FakeAdapter:
     binary_name = "fake-cli"
     supported_roles = frozenset({"architect", "executor"})
 
-    def build_invoker(self, role: str) -> Callable[[SimonState], object]:
+    def build_invoker(self, role: str) -> Callable[[AgentState], object]:
         return lambda state: state
 
     def authentication_status(self) -> AuthStatus:
@@ -28,7 +28,7 @@ class ArchitectOnlyAdapter:
     binary_name = "architect-cli"
     supported_roles = frozenset({"architect"})
 
-    def build_invoker(self, role: str) -> Callable[[SimonState], object]:
+    def build_invoker(self, role: str) -> Callable[[AgentState], object]:
         return lambda state: ArchitectBrief(files=[], changes=[], verify_cmd="")
 
     def authentication_status(self) -> AuthStatus:
@@ -101,6 +101,7 @@ def test_registry_items_stable_sort() -> None:
 
 def test_claude_adapter_auth_missing_binary(monkeypatch) -> None:
     from agent_os.backends import ClaudeCodeAdapter
+
     monkeypatch.setattr("shutil.which", lambda _: None)
     adapter = ClaudeCodeAdapter()
     status = adapter.authentication_status()
@@ -120,7 +121,9 @@ def test_claude_adapter_auth_success(monkeypatch) -> None:
         assert kwargs["shell"] is False
         assert kwargs["timeout"] == 5.0
         assert "TEST_API_KEY" not in kwargs["env"]
-        return subprocess.CompletedProcess(args=args, returncode=0, stdout="You are logged in.", stderr="")
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout="You are logged in.", stderr=""
+        )
 
     monkeypatch.setenv("TEST_API_KEY", "secret-value")
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -159,7 +162,9 @@ def test_claude_adapter_auth_unauthenticated(monkeypatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _: "/fake/claude")
 
     def fake_run(*args, **kwargs):
-        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="authentication_failed")
+        return subprocess.CompletedProcess(
+            args=args, returncode=1, stdout="", stderr="authentication_failed"
+        )
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
@@ -171,6 +176,7 @@ def test_claude_adapter_auth_unauthenticated(monkeypatch) -> None:
 
 def test_codex_adapter_auth_missing_binary(monkeypatch) -> None:
     from agent_os.backends import CodexAdapter
+
     monkeypatch.setattr("shutil.which", lambda _: None)
     adapter = CodexAdapter()
     status = adapter.authentication_status()
@@ -186,7 +192,9 @@ def test_codex_adapter_auth_success(monkeypatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _: "/fake/codex")
 
     def fake_run(*args, **kwargs):
-        return subprocess.CompletedProcess(args=args, returncode=0, stdout="Authenticated as user", stderr="")
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout="Authenticated as user", stderr=""
+        )
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
@@ -203,7 +211,9 @@ def test_codex_adapter_auth_unauthenticated(monkeypatch) -> None:
     monkeypatch.setattr("shutil.which", lambda _: "/fake/codex")
 
     def fake_run(*args, **kwargs):
-        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="oauth session expired")
+        return subprocess.CompletedProcess(
+            args=args, returncode=1, stdout="", stderr="oauth session expired"
+        )
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 

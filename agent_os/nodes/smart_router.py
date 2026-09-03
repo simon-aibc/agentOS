@@ -36,9 +36,7 @@ def classify_tool_request(
         return RouterDecision(tool=None, confidence=0.0, arguments={})
 
     resolved_llm = llm or get_router_llm()
-    system_prompt = ROUTER_PROMPT.format(
-        tool_list="\n".join(registry.router_catalog())
-    )
+    system_prompt = ROUTER_PROMPT.format(tool_list="\n".join(registry.router_catalog()))
     structured_llm = resolved_llm.with_structured_output(RouterDecision)
     decision = structured_llm.invoke(
         [

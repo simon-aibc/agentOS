@@ -2,6 +2,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+MemoryWriteMode = Literal["create", "append", "overwrite"]
+MEMORY_WRITE_MODES = frozenset({"append", "create", "overwrite"})
+
 
 class ReadFileResult(BaseModel):
     path: str
@@ -16,7 +19,6 @@ class GrepMatch(BaseModel):
 
 class GrepResult(BaseModel):
     matches: list[GrepMatch]
-
 
 
 class EditFileResult(BaseModel):
@@ -49,18 +51,27 @@ class ToolExecutionResult(BaseModel):
     success: bool
 
 
+SideEffect = Literal[
+    "none", "read", "write", "network", "payment", "communication", "privileged"
+]
+SUPPORTED_SIDE_EFFECTS = frozenset(
+    {"none", "read", "write", "network", "payment", "communication", "privileged"}
+)
+
+
 class ActionProposal(BaseModel):
     tool: str
     arguments: dict[str, object] = Field(default_factory=dict)
     reason: str = ""
-    side_effect: Literal["none", "read", "write", "network", "payment"] = "none"
+    side_effect: SideEffect = "none"
+    connector: str | None = None
 
 
 class MemoryWriteProposal(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     connector: str
     ref: str
-    mode: str
+    mode: MemoryWriteMode
     content_preview: str
     side_effect: str
 
@@ -69,6 +80,7 @@ class PlanArtifact(BaseModel):
     summary: str = ""
     steps: list[str] = Field(default_factory=list)
     proposed_actions: list[ActionProposal] = Field(default_factory=list)
+    acceptance_criteria: list[str] = Field(default_factory=list)
     metadata: dict[str, object] = Field(default_factory=dict)
 
 
@@ -78,6 +90,7 @@ class ExecutionResult(BaseModel):
     artifacts: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
     usage: dict[str, float] = Field(default_factory=dict)
+    self_check: dict = Field(default_factory=dict)
 
     @property
     def success(self) -> bool:
@@ -97,8 +110,18 @@ class CodingResult(ExecutionResult):
 
 ArchitectBrief = CodingPlan
 
+
 class ExecutorReport(CodingResult):
     def __init__(self, **data):
         if "success" in data and "status" not in data:
             data["status"] = "completed" if data.pop("success") else "failed"
         super().__init__(**data)
+
+
+class PolicyDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: Literal["allow", "deny", "require_approval"]
+    policy_id: str
+    reason: str = ""
+    approver_roles: list[str] = Field(default_factory=list)
+    transformed_arguments: dict[str, object] | None = None

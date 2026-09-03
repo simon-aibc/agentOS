@@ -28,17 +28,22 @@ def test_successful_executor_report_routes_to_end():
         "messages": [],
         "task": "A normal task",
         "plan": None,
-        "executor_output": ExecutorReport(diff="done", verify_output="ok", success=True),
+        "executor_output": ExecutorReport(
+            diff="done", verify_output="ok", success=True
+        ),
         "hot_context": None,
     }
     assert route_from_state(state) == "end"
+
 
 def test_successful_coding_result_routes_to_end():
     state = {
         "messages": [],
         "task": "A normal task",
         "plan": None,
-        "executor_output": CodingResult(status="completed", diff="done", verify_output="ok"),
+        "executor_output": CodingResult(
+            status="completed", diff="done", verify_output="ok"
+        ),
         "hot_context": None,
     }
     assert route_from_state(state) == "end"
@@ -49,7 +54,9 @@ def test_failed_executor_report_with_approved_feedback_retries_executor():
         "messages": [],
         "task": "A normal task",
         "plan": None,
-        "executor_output": ExecutorReport(diff="", verify_output="failed", success=False),
+        "executor_output": ExecutorReport(
+            diff="", verify_output="failed", success=False
+        ),
         "human_feedback": "approved",
         "hot_context": None,
     }

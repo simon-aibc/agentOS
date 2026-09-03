@@ -1,0 +1,251 @@
+{
+  "exports": [
+    "ActionProposal",
+    "AuthStatus",
+    "BackendAdapter",
+    "BackendArtifact",
+    "BackendInvoker",
+    "BackendRegistry",
+    "BackendRole",
+    "Connector",
+    "ConnectorRegistry",
+    "ContextBlock",
+    "ContextProvider",
+    "EventSink",
+    "ExecutionResult",
+    "IndexResult",
+    "IndexableMemory",
+    "LocalPolicy",
+    "MemoryConnector",
+    "MemoryHit",
+    "MemoryWriteResult",
+    "PluginRegistry",
+    "PolicyDecision",
+    "PolicyEngine",
+    "Principal",
+    "PrincipalResolver",
+    "RegisteredSkill",
+    "SUPPORTED_SIDE_EFFECTS",
+    "SkillHandler",
+    "SkillPackageLoader",
+    "SkillRegistry",
+    "WritableMemory",
+    "apply_policy"
+  ],
+  "protocol_attributes": {
+    "BackendAdapter": {
+      "name": "str",
+      "binary_name": "str",
+      "supported_roles": "frozenset[BackendRole]",
+      "stub": "bool"
+    },
+    "Connector": {
+      "name": "str"
+    },
+    "ContextProvider": {
+      "name": "str"
+    },
+    "EventSink": {
+      "name": "str"
+    },
+    "IndexableMemory": {
+      "name": "str"
+    },
+    "MemoryConnector": {
+      "name": "str"
+    },
+    "PolicyEngine": {},
+    "PrincipalResolver": {},
+    "WritableMemory": {
+      "name": "str",
+      "supported_write_modes": "frozenset[str]"
+    }
+  },
+  "callables": {
+    "BackendAdapter.authentication_status": "(POSITIONAL_OR_KEYWORD self: unannotated) -> AuthStatus",
+    "BackendAdapter.build_invoker": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD role: BackendRole) -> BackendInvoker",
+    "BackendRegistry.items": "(POSITIONAL_OR_KEYWORD self: unannotated) -> tuple[tuple[str, BackendAdapter], Ellipsis]",
+    "BackendRegistry.register": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD adapter: BackendAdapter) -> None",
+    "BackendRegistry.resolve": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD role: BackendRole; POSITIONAL_OR_KEYWORD name: str) -> BackendAdapter",
+    "Connector.capabilities": "(POSITIONAL_OR_KEYWORD self: unannotated) -> dict[str, Any]",
+    "Connector.describe_side_effect": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD action: str) -> str",
+    "Connector.invoke": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD action: str; POSITIONAL_OR_KEYWORD args: dict[str, Any]) -> ExecutionResult",
+    "ConnectorRegistry.list_connectors": "(POSITIONAL_OR_KEYWORD self: unannotated) -> list[str]",
+    "ConnectorRegistry.register": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD name: str; POSITIONAL_OR_KEYWORD connector: Any) -> None",
+    "ConnectorRegistry.resolve": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD name: str) -> Any",
+    "ContextProvider.provide": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD task: str; KEYWORD_ONLY budget_chars: int; KEYWORD_ONLY principal: Principal; KEYWORD_ONLY workspace_id: str) -> list[ContextBlock] | ContextBlock | str",
+    "EventSink.emit": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD event: dict[str, Any]) -> None",
+    "IndexableMemory.index": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD refs: list[str] | None = None) -> IndexResult",
+    "IndexableMemory.index_status": "(POSITIONAL_OR_KEYWORD self: unannotated) -> dict[str, Any]",
+    "IndexableMemory.reindex": "(POSITIONAL_OR_KEYWORD self: unannotated) -> IndexResult",
+    "LocalPolicy.__init__": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD rules: dict[str, Any] | None = None; KEYWORD_ONLY store: agent_os.permission_store.PermissionRuleStore | None = None; KEYWORD_ONLY mode: str = 'manual'; KEYWORD_ONLY session_key: str | None = None) -> None",
+    "LocalPolicy.evaluate": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD proposal: ActionProposal; KEYWORD_ONLY workspace: Any = None; KEYWORD_ONLY context: Any = None) -> PolicyDecision",
+    "MemoryConnector.list_notes": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD filters: dict[str, Any] | None = None) -> list[dict[str, Any]]",
+    "MemoryConnector.read_note": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD slug_or_path: str) -> dict[str, Any]",
+    "MemoryConnector.search": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD query: str; POSITIONAL_OR_KEYWORD limit: int = 10) -> list[dict[str, Any]]",
+    "MemoryWriteResult.__init__": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD ref: str; POSITIONAL_OR_KEYWORD mode: str; POSITIONAL_OR_KEYWORD bytes_written: int | None; POSITIONAL_OR_KEYWORD committed: bool; POSITIONAL_OR_KEYWORD status: Literal['completed', 'failed', 'cancelled'] = 'completed'; POSITIONAL_OR_KEYWORD error: str | None = None) -> None",
+    "PluginRegistry.__init__": "(POSITIONAL_OR_KEYWORD self: unannotated) -> None",
+    "PluginRegistry.discover": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD group: str) -> dict[str, Any]",
+    "PluginRegistry.list_available": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD group: str) -> list[str]",
+    "PluginRegistry.resolve": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD group: str; POSITIONAL_OR_KEYWORD name: str) -> Any",
+    "PolicyEngine.evaluate": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD proposal: ActionProposal; KEYWORD_ONLY workspace: Any = None; KEYWORD_ONLY context: Any = None) -> PolicyDecision",
+    "Principal.__init__": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD id: str; POSITIONAL_OR_KEYWORD kind: str; POSITIONAL_OR_KEYWORD display: str; POSITIONAL_OR_KEYWORD on_behalf_of: str | None = None) -> None",
+    "PrincipalResolver.resolve": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD request_or_context: Any = None) -> Principal",
+    "RegisteredSkill.__init__": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD name: str; POSITIONAL_OR_KEYWORD aliases: Sequence[str]; POSITIONAL_OR_KEYWORD handler: SkillHandler) -> None",
+    "RegisteredSkill.invoke": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD arguments: dict[str, object]) -> Any",
+    "RegisteredSkill.matches": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD command: str) -> bool",
+    "RegisteredSkill.router_description": "(POSITIONAL_OR_KEYWORD self: unannotated) -> str",
+    "SkillPackageLoader.__init__": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD registry: SkillRegistry) -> None",
+    "SkillPackageLoader.load_from_directories": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD directories: list[str]) -> None",
+    "SkillPackageLoader.load_from_entry_points": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD plugin_registry: PluginRegistry | None = None) -> None",
+    "SkillPackageLoader.load_package": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD package_dir: pathlib.Path) -> None",
+    "SkillRegistry.deterministic_match": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD text: str) -> RegisteredSkill | None",
+    "SkillRegistry.get": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD name: str) -> RegisteredSkill | None",
+    "SkillRegistry.names": "(POSITIONAL_OR_KEYWORD self: unannotated) -> list[str]",
+    "SkillRegistry.register": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD skill: RegisteredSkill) -> None",
+    "SkillRegistry.router_catalog": "(POSITIONAL_OR_KEYWORD self: unannotated) -> list[str]",
+    "WritableMemory.describe_write_side_effect": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD ref: str; POSITIONAL_OR_KEYWORD mode: str) -> str",
+    "WritableMemory.write_note": "(POSITIONAL_OR_KEYWORD self: unannotated; POSITIONAL_OR_KEYWORD ref: str; POSITIONAL_OR_KEYWORD content: str; POSITIONAL_OR_KEYWORD frontmatter: dict[str, Any] | None = None; POSITIONAL_OR_KEYWORD mode: Literal['create', 'append', 'overwrite'] = 'create') -> MemoryWriteResult",
+    "apply_policy": "(POSITIONAL_OR_KEYWORD engine: PolicyEngine; POSITIONAL_OR_KEYWORD proposal: ActionProposal; KEYWORD_ONLY workspace: Any = None; KEYWORD_ONLY context: Any = None; KEYWORD_ONLY execute_fn: Callable[[ActionProposal], ExecutionResult]) -> ExecutionResult"
+  },
+  "models": {
+    "ActionProposal": {
+      "tool": {
+        "annotation": "str",
+        "required": true
+      },
+      "arguments": {
+        "annotation": "dict[str, object]",
+        "required": false
+      },
+      "reason": {
+        "annotation": "str",
+        "required": false
+      },
+      "side_effect": {
+        "annotation": "Literal['none', 'read', 'write', 'network', 'payment', 'communication', 'privileged']",
+        "required": false
+      },
+      "connector": {
+        "annotation": "str | None",
+        "required": false
+      }
+    },
+    "AuthStatus": {
+      "status": {
+        "annotation": "Literal['ok', 'unauthenticated', 'unknown']",
+        "required": true
+      },
+      "detail": {
+        "annotation": "str",
+        "required": false
+      }
+    },
+    "ContextBlock": {
+      "source": {
+        "annotation": "str",
+        "required": true
+      },
+      "content": {
+        "annotation": "str",
+        "required": true
+      },
+      "title": {
+        "annotation": "str | None",
+        "required": false
+      },
+      "metadata": {
+        "annotation": "dict[str, Any]",
+        "required": false
+      }
+    },
+    "ExecutionResult": {
+      "status": {
+        "annotation": "Literal['completed', 'failed', 'cancelled', 'waiting']",
+        "required": true
+      },
+      "outputs": {
+        "annotation": "dict[str, object]",
+        "required": false
+      },
+      "artifacts": {
+        "annotation": "list[str]",
+        "required": false
+      },
+      "errors": {
+        "annotation": "list[str]",
+        "required": false
+      },
+      "usage": {
+        "annotation": "dict[str, float]",
+        "required": false
+      },
+      "self_check": {
+        "annotation": "dict",
+        "required": false
+      }
+    },
+    "IndexResult": {
+      "indexed_count": {
+        "annotation": "int",
+        "required": true
+      },
+      "deleted_count": {
+        "annotation": "int",
+        "required": false
+      },
+      "errors": {
+        "annotation": "list[str]",
+        "required": false
+      },
+      "metadata": {
+        "annotation": "dict[str, Any]",
+        "required": false
+      }
+    },
+    "MemoryHit": {
+      "ref": {
+        "annotation": "str",
+        "required": true
+      },
+      "title": {
+        "annotation": "str | None",
+        "required": false
+      },
+      "snippet": {
+        "annotation": "str",
+        "required": false
+      },
+      "score": {
+        "annotation": "float | None",
+        "required": false
+      },
+      "source": {
+        "annotation": "dict[str, Any]",
+        "required": false
+      }
+    },
+    "PolicyDecision": {
+      "decision": {
+        "annotation": "Literal['allow', 'deny', 'require_approval']",
+        "required": true
+      },
+      "policy_id": {
+        "annotation": "str",
+        "required": true
+      },
+      "reason": {
+        "annotation": "str",
+        "required": false
+      },
+      "approver_roles": {
+        "annotation": "list[str]",
+        "required": false
+      },
+      "transformed_arguments": {
+        "annotation": "dict[str, object] | None",
+        "required": false
+      }
+    }
+  }
+}

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from agent_os.backends import AntigravityAdapter, AuthStatus, BackendRegistry
-from agent_os.cli.doctor import run_doctor
+from agent_os.cli.doctor import POLICY_MODE_OFF_WARNING, run_doctor
 
 
 class MockAdapter:
@@ -38,12 +38,14 @@ def setup_doctor_env(monkeypatch, tmp_path):
     monkeypatch.setattr("agent_os.cli.doctor.build_default_registry", fake_registry)
 
     # Mock shutil.which
-    monkeypatch.setattr("shutil.which", lambda bin: f"/fake/{bin}" if bin == "mock-bin" else None)
+    monkeypatch.setattr(
+        "shutil.which", lambda bin: f"/fake/{bin}" if bin == "mock-bin" else None
+    )
 
 
 def test_doctor_healthy(tmp_path):
     exit_code, output = run_doctor(json_output=True)
-    assert exit_code == 0
+    assert exit_code == 0, output
     data = json.loads(output)
 
     assert data["checkpoints_db"]["writable"] is True
@@ -56,7 +58,7 @@ def test_doctor_healthy(tmp_path):
         "profile_source",
         "checkpoints_db",
         "backend_binding",
-        "warnings"
+        "warnings",
     ]
     assert data["registered_adapters"][0]["stub"] is False
     assert data["backend_binding"] == {
@@ -66,6 +68,88 @@ def test_doctor_healthy(tmp_path):
         "profile_name": None,
         "sandbox_root": data["resolved_config"]["sandbox"],
     }
+
+
+def test_doctor_uses_workspace_backend_binding(monkeypatch, tmp_path):
+    from agent_os.backends import build_default_registry as real_registry
+
+    monkeypatch.setattr("agent_os.cli.doctor.build_default_registry", real_registry)
+    monkeypatch.setattr("shutil.which", lambda binary: f"/fake/{binary}")
+    workspace = tmp_path / "workspace.toml"
+    workspace.write_text(
+        """
+[workspace]
+name = "doctor-workspace"
+
+[backends]
+architect = "codex"
+executor = "codex"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    exit_code, output = run_doctor(json_output=True, workspace_path=str(workspace))
+
+    assert exit_code == 0, output
+    data = json.loads(output)
+    assert data["resolved_config"]["architect"] == "cli/codex"
+    assert data["resolved_config"]["executor"] == "cli/codex"
+    assert data["profile_source"] == "workspace"
+
+
+def test_doctor_fails_workspace_with_policy_mode_off(monkeypatch, tmp_path):
+    from agent_os.backends import build_default_registry as real_registry
+
+    monkeypatch.setattr("agent_os.cli.doctor.build_default_registry", real_registry)
+    monkeypatch.setattr("shutil.which", lambda binary: f"/fake/{binary}")
+    workspace = tmp_path / "workspace.toml"
+    workspace.write_text(
+        """
+[workspace]
+name = "doctor-workspace"
+
+[backends]
+architect = "codex"
+executor = "codex"
+
+[policy]
+mode = "off"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    exit_code, output = run_doctor(json_output=True, workspace_path=str(workspace))
+
+    assert exit_code == 1
+    data = json.loads(output)
+    assert data["resolved_config"]["policy_mode"] == "off"
+    assert POLICY_MODE_OFF_WARNING in data["warnings"]
+
+
+def test_doctor_workspace_default_policy_mode_is_ok(monkeypatch, tmp_path):
+    from agent_os.backends import build_default_registry as real_registry
+
+    monkeypatch.setattr("agent_os.cli.doctor.build_default_registry", real_registry)
+    monkeypatch.setattr("shutil.which", lambda binary: f"/fake/{binary}")
+    workspace = tmp_path / "workspace.toml"
+    workspace.write_text(
+        """
+[workspace]
+name = "doctor-workspace"
+
+[backends]
+architect = "codex"
+executor = "codex"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    exit_code, output = run_doctor(json_output=True, workspace_path=str(workspace))
+
+    assert exit_code == 0, output
+    data = json.loads(output)
+    assert data["resolved_config"]["policy_mode"] == "manual"
+    assert POLICY_MODE_OFF_WARNING not in data["warnings"]
 
 
 def test_doctor_missing_binary(monkeypatch):
@@ -189,8 +273,7 @@ def test_doctor_reports_antigravity_candidate_without_binary_probe(monkeypatch):
     exit_code, raw_json = run_doctor(json_output=True)
     data = json.loads(raw_json)
     candidate = next(
-        item for item in data["registered_adapters"]
-        if item["name"] == "antigravity"
+        item for item in data["registered_adapters"] if item["name"] == "antigravity"
     )
 
     assert exit_code == 0
@@ -240,7 +323,7 @@ def test_doctor_reports_effective_profile_config(monkeypatch, tmp_path):
     config_root.mkdir(parents=True)
     (config_root / "profiles.toml").write_text(
         'default = "profile"\n\n'
-        '[profile.profile]\n'
+        "[profile.profile]\n"
         'router = "ollama/profile"\n'
         'sandbox = "./profile-sandbox"\n',
     )
@@ -269,6 +352,7 @@ def test_doctor_does_not_invoke_llm(monkeypatch):
     # If it tries to invoke LLM, MagicMock will raise TypeError or similar,
     # but we can explicitly assert our mocks aren't called
     import agent_os.graph
+
     mock_build = MagicMock()
     monkeypatch.setattr(agent_os.graph, "build_graph", mock_build)
 

@@ -46,9 +46,7 @@ async def test_mcp_codegraph_integration():
     with anyio.fail_after(15):
         tools = await load_mcp_tools()
 
-    codegraph_tools = [
-        tool for tool in tools if tool.name.startswith("mcp_codegraph_")
-    ]
+    codegraph_tools = [tool for tool in tools if tool.name.startswith("mcp_codegraph_")]
     assert codegraph_tools, "No CodeGraph tools were loaded"
 
 
@@ -60,7 +58,5 @@ async def test_mcp_gbrain_integration():
     with anyio.fail_after(15):
         tools = await load_mcp_tools()
 
-    gbrain_tools = [
-        tool for tool in tools if tool.name.startswith("mcp_gbrain_")
-    ]
+    gbrain_tools = [tool for tool in tools if tool.name.startswith("mcp_gbrain_")]
     assert gbrain_tools, "No gbrain tools were loaded"

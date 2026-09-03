@@ -9,6 +9,7 @@ from agent_os.cli.app import main
 @pytest.fixture
 def mock_profiles(monkeypatch):
     from agent_os.profiles import Profile, ProfileFile
+
     pf = ProfileFile(
         default="def",
         profiles={
@@ -16,11 +17,12 @@ def mock_profiles(monkeypatch):
             "env": Profile(name="env", sandbox="./env-sandbox"),
             "cli": Profile(name="cli", sandbox="./cli-sandbox"),
             "bad": Profile(name="bad", router="cli/not-allowed"),
-        }
+        },
     )
     monkeypatch.setattr("agent_os.profiles.load_profiles", lambda *a, **k: pf)
     # mock registry so resolution succeeds for backends if any
     from agent_os.backends import BackendRegistry
+
     class DummyAdapter:
         name = "dummy"
         binary_name = "dummy"
@@ -35,14 +37,18 @@ def mock_profiles(monkeypatch):
 @pytest.fixture
 def mock_graph_runner(monkeypatch):
     import agent_os.cli.app
+
     runner = MagicMock(return_value=0)
+
     # Use AsyncMock for _run_graph since it's an async function
     async def async_runner(*args, **kwargs):
         return runner(*args, **kwargs)
+
     monkeypatch.setattr(agent_os.cli.app, "_run_graph", async_runner)
 
     # We must mock graph_factory in main to avoid full checkpoint load
     import agent_os.graph
+
     monkeypatch.setattr(agent_os.graph, "build_graph", lambda checkpointer: MagicMock())
     return runner
 
@@ -73,7 +79,9 @@ def test_cli_invalid_profile(monkeypatch, mock_profiles, mock_graph_runner, caps
     mock_graph_runner.assert_not_called()
 
 
-def test_cli_profile_router_error(monkeypatch, mock_profiles, mock_graph_runner, capsys):
+def test_cli_profile_router_error(
+    monkeypatch, mock_profiles, mock_graph_runner, capsys
+):
     res = main(["run", "task", "--profile", "bad"])
     assert res == 2
     out = capsys.readouterr().out

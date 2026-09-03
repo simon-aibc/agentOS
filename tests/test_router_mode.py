@@ -8,10 +8,10 @@ from agent_os.nodes.tool_dispatcher import build_tool_dispatcher_node
 from agent_os.routing import build_runtime_config, get_router_mode
 from agent_os.schemas import ArchitectBrief
 from agent_os.skills import RegisteredSkill, SkillRegistry
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def make_state(task: str) -> SimonState:
+def make_state(task: str) -> AgentState:
     return {
         "messages": [],
         "task": task,
@@ -88,7 +88,7 @@ def test_direct_escalation_preserves_tier1_hit(monkeypatch):
 def test_direct_escalation_still_reaches_human_gate(monkeypatch):
     monkeypatch.setenv("ROUTER_MODE", "direct-escalation")
 
-    def architect(state: SimonState):
+    def architect(state: AgentState):
         return {
             "plan": ArchitectBrief(
                 files=["example.py"],

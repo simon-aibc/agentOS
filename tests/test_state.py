@@ -13,11 +13,11 @@ from agent_os.schemas import (
     RouterDecision,
     ToolExecutionResult,
 )
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
-def test_simon_state_keys():
-    """SimonState exposes six required and three optional persisted keys."""
+def test_agent_state_keys():
+    """AgentState exposes six required and five optional persisted keys."""
     # TypedDict.__annotations__ gives the keys and types
     expected_required_keys = {
         "messages",
@@ -32,35 +32,38 @@ def test_simon_state_keys():
         "router_escalated",
         "backend_binding",
         "conversation_summary",
-    }
-    assert set(SimonState.__annotations__.keys()) == expected_all_keys
+        "observation_context",
+            "strategy_hint",
+            "run_id",
+        }
+    assert set(AgentState.__annotations__.keys()) == expected_all_keys
     # TypedDict fields are required unless declared with NotRequired.
     # Note: TypedDict.__required_keys__ excludes fields declared as NotRequired.
-    assert set(SimonState.__required_keys__) == expected_required_keys
-    assert "tool_result" not in SimonState.__required_keys__
-    assert "router_escalated" not in SimonState.__required_keys__
-    assert "backend_binding" not in SimonState.__required_keys__
+    assert set(AgentState.__required_keys__) == expected_required_keys
+    assert "tool_result" not in AgentState.__required_keys__
+    assert "router_escalated" not in AgentState.__required_keys__
+    assert "backend_binding" not in AgentState.__required_keys__
 
 
-def test_simon_state_validation_success():
-    """2. Pydantic TypeAdapter(SimonState) accepts a complete valid state."""
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_validation_success():
+    """2. Pydantic TypeAdapter(AgentState) accepts a complete valid state."""
+    adapter = TypeAdapter(AgentState)
     valid_state = {
         "messages": [],
         "task": "Do something",
         "plan": "My plan",
         "executor_output": "Success",
         "human_feedback": "approved",
-        "hot_context": "Some context"
+        "hot_context": "Some context",
     }
     # Should not raise exception
     validated = adapter.validate_python(valid_state)
     assert validated["task"] == "Do something"
 
 
-def test_simon_state_validation_failure():
+def test_agent_state_validation_failure():
     """3. Validation rejects a state missing a required key."""
-    adapter = TypeAdapter(SimonState)
+    adapter = TypeAdapter(AgentState)
     invalid_state = {
         "messages": [],
         "task": "Do something",
@@ -77,8 +80,8 @@ def test_router_decision_rejects_out_of_bounds_confidence(confidence):
         RouterDecision(tool=None, confidence=confidence)
 
 
-def test_simon_state_accepts_optional_r7_dispatch_fields():
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_accepts_optional_r7_dispatch_fields():
+    adapter = TypeAdapter(AgentState)
     state = {
         "messages": [],
         "task": "read README.md",
@@ -101,7 +104,9 @@ def test_simon_state_accepts_optional_r7_dispatch_fields():
 
 
 def fake_architect_node(state):
-    return {"plan": ArchitectBrief(files=["dummy"], changes=["dummy"], verify_cmd="dummy")}
+    return {
+        "plan": ArchitectBrief(files=["dummy"], changes=["dummy"], verify_cmd="dummy")
+    }
 
 
 def test_build_graph_compiles():
@@ -177,6 +182,7 @@ def test_graph_invocation():
     assert result["hot_context"] is None
     assert result["messages"] == []
 
+
 def test_architect_brief_validation():
     """ArchitectBrief validates a correct payload."""
     brief = ArchitectBrief(files=["a.py"], changes=["fix"], verify_cmd="pytest")
@@ -191,9 +197,9 @@ def test_architect_brief_missing_fields():
         ArchitectBrief(files=["a.py"])
 
 
-def test_simon_state_plan_accepts_brief():
-    """SimonState accepts both a string plan and ArchitectBrief."""
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_plan_accepts_brief():
+    """AgentState accepts both a string plan and ArchitectBrief."""
+    adapter = TypeAdapter(AgentState)
     valid_state = {
         "messages": [],
         "task": "Do something",
@@ -217,12 +223,14 @@ def test_edit_file_result_validation():
 
 
 def test_bash_result_validation():
-    res = BashResult(args=["ls"], returncode=0, stdout="out", stderr="", timed_out=False)
+    res = BashResult(
+        args=["ls"], returncode=0, stdout="out", stderr="", timed_out=False
+    )
     assert res.args == ["ls"]
 
 
-def test_simon_state_executor_output_accepts_report():
-    adapter = TypeAdapter(SimonState)
+def test_agent_state_executor_output_accepts_report():
+    adapter = TypeAdapter(AgentState)
     valid_state = {
         "messages": [],
         "task": "Do something",

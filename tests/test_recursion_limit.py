@@ -8,13 +8,13 @@ from langgraph.types import Command
 from agent_os.graph import build_graph
 from agent_os.routing import build_runtime_config
 from agent_os.schemas import ExecutorReport
-from agent_os.state import SimonState
+from agent_os.state import AgentState
 
 
 def test_recursion_limit_enforced():
     """A rejected architect loop stops at the configured runtime bound."""
 
-    def looping_architect_node(state: SimonState) -> dict:
+    def looping_architect_node(state: AgentState) -> dict:
         return {}
 
     with mock.patch(
@@ -30,7 +30,7 @@ def test_recursion_limit_enforced():
             checkpointer=InMemorySaver(),
         )
 
-    state: SimonState = {
+    state: AgentState = {
         "messages": [],
         "task": "infinite loop task",
         "plan": None,
@@ -46,7 +46,7 @@ def test_recursion_limit_enforced():
 def test_recursion_limit_executor_retry():
     """A failing approved executor loop also stops at the runtime bound."""
 
-    def failing_executor_node(state: SimonState) -> dict[str, ExecutorReport]:
+    def failing_executor_node(state: AgentState) -> dict[str, ExecutorReport]:
         return {
             "executor_output": ExecutorReport(
                 diff="partial change",
@@ -59,7 +59,7 @@ def test_recursion_limit_executor_retry():
         executor_node_impl=failing_executor_node,
         checkpointer=InMemorySaver(),
     )
-    state: SimonState = {
+    state: AgentState = {
         "messages": [],
         "task": "infinite loop executor task",
         "plan": None,
