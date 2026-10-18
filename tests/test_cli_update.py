@@ -183,12 +183,18 @@ def test_run_pre_update_db_backups_creates_real_backup_files(tmp_path, monkeypat
     assert (tmp_path / "permissions.db.bak-2").exists()
 
 
-def test_resolve_source_checkout_detects_this_repository():
-    """The tests run from a git checkout, so detection must succeed here."""
-    root = resolve_source_checkout()
-    assert root is not None
-    assert (root / "pyproject.toml").is_file()
-    assert (root / ".git").exists()
+def test_resolve_source_checkout_detects_git_layout(monkeypatch, tmp_path):
+    """Exercise checkout detection without requiring .git in a source archive."""
+    checkout = tmp_path / "checkout"
+    package = checkout / "agent_os" / "cli"
+    package.mkdir(parents=True)
+    (checkout / ".git").mkdir()
+    (checkout / "pyproject.toml").write_text("[project]\nname = 'example'\n")
+    monkeypatch.setattr(update_module, "__file__", str(package / "update.py"))
+    with patch.object(update_module.Distribution, "from_name", side_effect=LookupError):
+        assert resolve_source_checkout() == checkout
+        (checkout / ".git").rmdir()
+        assert resolve_source_checkout() is None
 
 
 def test_resolve_source_checkout_returns_none_outside_a_checkout(monkeypatch, tmp_path):
