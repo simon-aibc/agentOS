@@ -34,7 +34,7 @@ dependencies = [
     "python-dotenv==1.2.2",
     "typing-extensions==4.16.0",
     "langchain-litellm==0.7.0",
-    "litellm==1.95.0",
+    "litellm==1.95.1",
     "mcp==1.29.0",
     "langchain-mcp-adapters==0.3.1",
     "rich==15.0.0",
