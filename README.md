@@ -1,17 +1,16 @@
-# Agent OS
+# AgentOS Runtime
 
-[![CI](https://github.com/simon-aibc/agent-os-langgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/simon-aibc/agent-os-langgraph/actions/workflows/ci.yml)
+[![CI](https://github.com/simon-aibc/agentOS/actions/workflows/ci.yml/badge.svg)](https://github.com/simon-aibc/agentOS/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.11-3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)
-[![Release](https://img.shields.io/badge/release-v2.4.0-green.svg)](https://github.com/simon-aibc/agent-os-langgraph/releases/tag/v2.4.0)
 [![Typed](https://img.shields.io/badge/types-py.typed-informational.svg)](agent_os/api)
 
-> **Agent OS: Everything is a Plugin.**<br>
-> An open-source, local-first Operating System and extensible harness for autonomous AI agents.
+AgentOS Runtime is a self-hostable execution backbone for applications that use AI agents. It combines explicit tool dispatch, structured planning, approval gates, SQLite checkpoints, and extension contracts on LangGraph.
 
-Agent OS is an auditable, self-hostable agent operating system providing deterministic fast-path execution, read-only architect planning, human approval governance, immutable policy floors, memory retrieval lifecycles, anti-SSRF signed event egress, and a modular plugin runtime. Under the hood, stateful graph execution and checkpointing are powered by LangGraph.
+In the Hudos project, this is the reusable runtime layer. Hudos is the broader enterprise operating-system project; its business applications, user experience, company integrations, and deployment configuration are separate. This repository is not the complete Hudos product or a multi-tenant enterprise platform.
 
-**Current release:** [v2.4.0](https://github.com/simon-aibc/agent-os-langgraph/releases/tag/v2.4.0) |
+**Start here:** [Core source distribution and release scope](docs/public-release.md). The package metadata is `2.5.0rc1`, a release candidate for evaluation. See [RC notes](docs/releases/2.5.0rc1.md) and [support scope](SUPPORT.md). A local RC build does not mean the artifact has been published.
+
 [Changelog](CHANGELOG.md) |
 [Architecture](docs/architecture.md) |
 [Extending Agent OS](docs/EXTENDING.md) |
@@ -42,10 +41,10 @@ Agent OS is an auditable, self-hostable agent operating system providing determi
 
 Agent OS organizes autonomous agent operations into distinct operating system subsystems:
 
-- **Kernel / Deterministic Fast-Path**: Exact, low-risk tool operations execute immediately with zero model latency and zero token cost.
+- **Kernel / Deterministic Fast-Path**: Explicit supported tool commands can bypass LLM routing. Total execution still has tool, storage, and application overhead; this is not an end-to-end cost or latency benchmark.
 - **Architect & Planning Subsystem**: Ambiguous or high-complexity tasks escalate to a read-only architect that produces structured execution proposals.
-- **Governance & Policy Floor**: Side-effect proposals require approval; non-bypassable policy floors enforce strict security constraints regardless of policy mode.
-- **Process Isolation & Sandbox Execution**: Side effects execute strictly within configured workspace sandbox boundaries.
+- **Governance & Policy**: Supported proposals pass policy evaluation and approval gates. Use supported enforcement modes; legacy policy-off configuration is not a production security boundary.
+- **Workspace-Scoped Native Tools**: Native path checks and subprocess working directories reduce accidental cross-workspace access. They do not provide OS-level process or network isolation.
 - **Memory & Retrieval Subsystem**: Multi-vault connectors (Markdown, G-Brain, SQLite, vectors) with cold-start indexing lifecycles (`IndexableMemory`) and non-blocking context injection (`ContextProvider`).
 - **Persistence & Audit Subsystem**: SQLite state stores with live additive migrations, WAL-checkpoint backups, strategy assignment audit traces, and actor provenance (`Principal`).
 - **IPC & Event Egress**: Real-time Server-Sent Events (SSE), local cron/interval scheduling, and DNS-rebinding-safe HMAC-signed webhooks (`EventSink`).
@@ -118,7 +117,7 @@ class MyCustomConnector:
 - [Pydantic](https://docs.pydantic.dev/) for structured contracts
 - [FastAPI](https://fastapi.tiangolo.com/) for the runtime API
 - SQLite for local checkpoints, run ledgers, schedules, and state
-- Docker Compose for local self-hosting
+- Optional container reference files; the current preparation targets Core source installation
 
 ---
 
@@ -128,33 +127,33 @@ class MyCustomConnector:
 
 - Python 3.11 or 3.12
 - Git
-- Docker with Compose v2 (optional, for self-hosted container deployment)
+- A fresh disposable workspace for the initial example; no production database or vault is required
 
 ### 1. Installation
 
 ```bash
-git clone https://github.com/simon-aibc/agent-os-langgraph.git
-cd agent-os-langgraph
+git clone https://github.com/simon-aibc/agentOS.git
+cd agentOS
 
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,serve]"
 ```
 
-### 2. Zero-LLM Fast-Path Execution
+### 2. Explicit Tool Dispatch
 
-Execute deterministic operations directly through the kernel fast-path:
+For an isolated first run, follow the [Core quickstart](docs/self-hosting.md). In an already configured disposable checkout, an explicit command is:
 
 ```bash
 agent-os "read_file README.md" --thread-id quickstart --sandbox .
 ```
 
-Output:
+Illustrative output (format can vary):
 ```text
 [THREAD] quickstart
 [SUPERVISOR] -> tool_dispatcher
 [TOOL] read_file({"path": "README.md"})
-[RESULT] # Agent OS ...
+[RESULT] # AgentOS Runtime ...
 ```
 
 ### 3. Configure Model Roles
@@ -166,9 +165,10 @@ cp .env.example .env
 Agent OS reads 3 decoupled roles:
 
 ```bash
-LLM_ROUTER="ollama/qwen2.5:14b"
-LLM_ARCHITECT="anthropic/claude-opus-4-8"
-LLM_EXECUTOR="openai/gpt-5.5"
+LLM_ROUTER="<provider>/<router-model>"
+LLM_ARCHITECT="<provider>/<planning-model>"
+LLM_EXECUTOR="<provider>/<execution-model>"
+# Replace placeholders with models supported by your selected provider.
 ```
 
 Subscription CLIs are also supported out of the box:
@@ -228,17 +228,11 @@ agent-os update --yes --reload
 
 ## Self-Hosting & Operations
 
-### Run with Docker Compose
-
-Start the complete Agent OS backend and Web Operator Console:
-
-```bash
-docker compose up -d
-```
-
-- **Agent OS Runtime API**: `http://127.0.0.1:4680`
-- **Operator Console**: `http://127.0.0.1:4100`
-- **Health Check**: `http://127.0.0.1:4680/api/health`
+The selected preparation path is the standalone Core CLI/API. See the
+[isolated source quickstart](docs/self-hosting.md). The repository's historical
+Compose stack also includes a separate Console; it is retained as reference,
+not qualified as a release path by this preparation. Console is not required
+by the Core extension contracts.
 
 ### Run Runtime Server Locally
 
@@ -281,10 +275,10 @@ pytest -q
 
 ## Security & Governance Invariants
 
-- **Non-Bypassable Policy Floors**: Hard safety constraints (e.g. `payment` or `privileged` actions) cannot be bypassed by plugins, even with `mode="off"`.
+- **Policy Composition**: The composite policy blocks `payment` and `privileged` actions before consulting plugins. Standalone legacy `LocalPolicy(mode="off")` disables enforcement and is outside the supported deployment envelope.
 - **Anti-SSRF DNS-Rebinding Protection**: Webhooks validate target IPs against loopback/private CIDRs, pin sockets to verified IPs, and preserve TLS SNI/certificate validation.
-- **Server-Trusted Actor Identity**: `Principal` provenance is resolved server-side to prevent header spoofing in multi-tenant environments.
-- **Workspace Isolation**: Database files, permission rules, and observation records are isolated per workspace path.
+- **Server-Trusted Actor Identity**: `Principal` provenance is resolved server-side. It is audit provenance, not per-user login, RBAC, or tenant isolation.
+- **Workspace Isolation**: Separate deployment paths and stores must be selected for separate trust domains; a workspace label is not a tenant authorization boundary.
 
 ### Deployment Trust Boundaries
 
@@ -321,7 +315,7 @@ vault content, or real workflow logs.
 
 Simon Tran — [GitHub @simon-aibc](https://github.com/simon-aibc)
 
-Project: [simon-aibc/agent-os-langgraph](https://github.com/simon-aibc/agent-os-langgraph)
+Project: [simon-aibc/agent-os-langgraph](https://github.com/simon-aibc/agentOS)
 
 ## Acknowledgments
 

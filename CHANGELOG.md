@@ -5,6 +5,12 @@ for public releases.
 
 ## [Unreleased]
 
+No changes recorded after the RC cut.
+
+## [2.5.0rc1] — Candidate prepared 2026-10-18
+
+Prerelease preparation; not a publication announcement. See `docs/releases/2.5.0rc1.md`.
+
 ### Added
 
 - **Pluggable Store Discovery**: Added dynamic entry-point discovery for the `agent_os.stores` group via `resolve_store_backend()` and `list_store_backends()` in `agent_os.stores`, allowing third-party persistence adapters (e.g. Postgres) to be loaded as plugins.
@@ -14,10 +20,14 @@ for public releases.
 
 ### Changed
 
+- **Core distribution preparation:** clarified the AgentOS Runtime / Hudos boundary, added a standalone source quickstart and release checklist, corrected sandbox and identity claims, and removed obsolete concierge configuration examples. Historical Console Compose files remain reference-only for this preparation. No runtime behavior or release version is changed by these documentation updates.
+
 - **Public boundary cleanup:** renamed the internal graph state to `AgentState`, removed the bundled public-concierge surface, and added the optional opaque `task_signature` field to `POST /api/runs`. Internal `agent_os.*` imports remain unsupported; use only symbols exported from `agent_os.api`.
 - **Dependency Update Policy**: Dependabot now opens pull requests for security advisories only, grouped into a single request per batch. Routine version bumps are disabled because every runtime dependency is pinned exactly in `pyproject.toml`.
 
 ### Fixed
+
+- **Source-archive test portability:** checkout detection now uses an isolated test fixture instead of assuming the distributed source contains `.git`. Runtime checkout detection is unchanged.
 
 - **Bounded Webhook Worker & Shutdown Drain**: `WebhookEventSink` now routes background delivery through a bounded FIFO queue and fixed worker pool, ensuring `emit()` never blocks the execution path, drops with a warning under queue saturation, and cleanly drains in-flight deliveries during graceful shutdown via `close()`.
 - **Explicit Insecure HTTP Opt-in**: Webhook URLs now reject unencrypted `http://` schemes by default. Insecure HTTP requires explicit opt-in via workspace configuration `[webhooks] allow_insecure_http = true` or `allowed_internal_hosts`.

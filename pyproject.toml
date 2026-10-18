@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-os-langgraph"
-version = "2.4.0"
+version = "2.5.0rc1"
 description = "Deterministic multi-agent orchestration built with LangGraph."
 readme = "README.md"
 authors = [{ name = "Simon Tran" }]
@@ -45,11 +45,11 @@ dependencies = [
 agent-os = "agent_os.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/simon-aibc/agent-os-langgraph"
-Documentation = "https://github.com/simon-aibc/agent-os-langgraph#readme"
-Repository = "https://github.com/simon-aibc/agent-os-langgraph.git"
-Changelog = "https://github.com/simon-aibc/agent-os-langgraph/blob/main/CHANGELOG.md"
-Issues = "https://github.com/simon-aibc/agent-os-langgraph/issues"
+Homepage = "https://github.com/simon-aibc/agentOS"
+Documentation = "https://github.com/simon-aibc/agentOS#readme"
+Repository = "https://github.com/simon-aibc/agentOS.git"
+Changelog = "https://github.com/simon-aibc/agentOS/blob/main/CHANGELOG.md"
+Issues = "https://github.com/simon-aibc/agentOS/issues"
 
 [tool.setuptools.packages.find]
 include = ["agent_os*"]
